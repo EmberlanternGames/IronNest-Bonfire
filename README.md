@@ -19,7 +19,7 @@ MelonLoader 0.7.3 or newer. Go to https://melonwiki.xyz/ to get the installer an
 
 - Note: It will take a while to launch the game when you first load after installing MelonLoader, don't exit if it looks frozen, it's just generating files and will be back shortly. This also happens with game updates.
 
-### Installation
+## Installation
 
 1. Extract the mod into the game folder. If all goes right, the mod file should end up at `[Iron Nest Directory]/Mods/Bonfire.dll`
 2. Configure: Check the config file at `[Iron Nest Directory]/MLLoader/UserData/MelonPreferences.cfg` - Enable any Bonfire features you desire and configure them appropriately
@@ -37,7 +37,7 @@ Please submit to the bugs to the Bugs tab in Nexus.
 
 This mod will overhaul many systems in due time. Some mods may not be compatible. If the mods affect gameplay features that already exist, be warned!
 
-# AI Disclosure
+## AI Disclosure
 
 This code was written 100% by a fleshy meatbag. AI was used to assist (basics of learning to mod and acting as a sounding board).
 
