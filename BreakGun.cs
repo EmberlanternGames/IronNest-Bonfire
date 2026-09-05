@@ -16,9 +16,9 @@ namespace Bonfire
             internal static bool isTutorial1Or2 = false;
             
             // Config settings
-            internal static MelonPreferences_Entry<bool> enabled;
-            internal static MelonPreferences_Entry<float> maxAngle;
-            internal static MelonPreferences_Entry<int> maxCharges;
+            internal static MelonPreferences_Entry<bool> cfg_enabled;
+            internal static MelonPreferences_Entry<float> cfg_maxAngle;
+            internal static MelonPreferences_Entry<int> cfg_maxCharges;
             internal static MelonPreferences_Category _configCategory;
 
             // Initialize all settings related to breaking the gun
@@ -28,19 +28,19 @@ namespace Bonfire
 
                 _configCategory = MelonPreferences.CreateCategory("Bonfire_BreakGuns", "Break Guns");
 
-                enabled = _configCategory.CreateEntry(
+                cfg_enabled = _configCategory.CreateEntry(
                     "enabled",
                     false,
                     "Enabled",
                     "Enables the limits for the gun angle and max powder charges per shot. \n  Possible Values: True/False | Default: False"
                 );
-                maxAngle = _configCategory.CreateEntry(
+                cfg_maxAngle = _configCategory.CreateEntry(
                     "maxAngle",
-                    15.0F,
+                    15.0f,
                     "Max Angle",
                     "Limits the maximum elevation angle the gun may raise to. \n  Possible Values: [0.0 - 60.0] | Default: 15.0"
                 );
-                maxCharges = _configCategory.CreateEntry(
+                cfg_maxCharges = _configCategory.CreateEntry(
                     "maxCharges",
                     2,
                     "Max Powder Charges",
@@ -56,7 +56,7 @@ namespace Bonfire
             static void Postfix(GunElevationDialBinding __instance)
             {
                 // Return early if not enabled or in first 2 missions
-                if (!Controller.enabled.Value || Controller.isTutorial1Or2)
+                if (!Controller.cfg_enabled.Value || Controller.isTutorial1Or2)
                 {
                     __instance.elevationDial.maxOutputValue = 60;
                     __instance.elevationDial.maxRotationAngle = 60000;
@@ -64,29 +64,29 @@ namespace Bonfire
                 }
                     
                 // Ensure the max angles for the dial are set right
-                __instance.elevationDial.maxOutputValue = Controller.maxAngle.Value;
-                __instance.elevationDial.maxRotationAngle = Controller.maxAngle.Value * 1000.0F;
+                __instance.elevationDial.maxOutputValue = Controller.cfg_maxAngle.Value;
+                __instance.elevationDial.maxRotationAngle = Controller.cfg_maxAngle.Value * 1000.0f;
                 
                 // Stop the dial and slider when over the max angle
-                if (__instance.gun.CurrentElevation > Controller.maxAngle.Value)
+                if (__instance.gun.CurrentElevation > Controller.cfg_maxAngle.Value)
                 {
                     // If going fast enough when stopped, CLANG!!!
-                    if (__instance.gun.elevationChangeVelocity > 0.5F)
+                    if (__instance.gun.elevationChangeVelocity > 0.5f)
                     {
                         __instance.OnDialOverrideSliderBegan.Invoke(); 
                         __instance.gun.elevationChangeVelocity = 0;
                     }
 
                     // Sets the slider visually
-                    __instance.sliderBindingForVisualSync.SetDesiredSliderSafely(Controller.maxAngle.Value);
+                    __instance.sliderBindingForVisualSync.SetDesiredSliderSafely(Controller.cfg_maxAngle.Value);
                     // Sets a variety of angle data for the dial to ensure the right limits
-                    __instance.elevationDial.lastRawAngle = Controller.maxAngle.Value * 1000;
-                    __instance.elevationDial.lastAngle = Controller.maxAngle.Value * 1000;
-                    __instance.elevationDial.currentRotationAngle = Controller.maxAngle.Value * 1000;
-                    __instance.elevationDial.accumulatedValue = Controller.maxAngle.Value;
-                    __instance.elevationDial.SetDialValue(Controller.maxAngle.Value);
+                    __instance.elevationDial.lastRawAngle = Controller.cfg_maxAngle.Value * 1000;
+                    __instance.elevationDial.lastAngle = Controller.cfg_maxAngle.Value * 1000;
+                    __instance.elevationDial.currentRotationAngle = Controller.cfg_maxAngle.Value * 1000;
+                    __instance.elevationDial.accumulatedValue = Controller.cfg_maxAngle.Value;
+                    __instance.elevationDial.SetDialValue(Controller.cfg_maxAngle.Value);
                     // Set the elevation of the gun to the max angle
-                    __instance.gun.SetDesiredElevationFromDial(Controller.maxAngle.Value);
+                    __instance.gun.SetDesiredElevationFromDial(Controller.cfg_maxAngle.Value);
                 }
             }
         }
@@ -95,14 +95,14 @@ namespace Bonfire
         [HarmonyPatch(typeof(PowderChargeController), nameof(PowderChargeController.OnChargeButtonPressed))]
         public class LimitPowderPatch
         {
-            public static bool Prefix(PowderChargeController __instance, int index)
+            static bool Prefix(int index)
             {
                 // Return early if not enabled or in first 2 missions
-                if (!Controller.enabled.Value || Controller.isTutorial1Or2)
+                if (!Controller.cfg_enabled.Value || Controller.isTutorial1Or2)
                     return true;
 
                 // Only dispense N charges, but allow the (N+1)'th lever to be pulled, doing nothing
-                return index < Controller.maxCharges.Value;
+                return index < Controller.cfg_maxCharges.Value;
             }
         }
 
@@ -132,7 +132,7 @@ namespace Bonfire
             public static bool Prefix(ProgressionManager __instance, List<PunchcardDefinitionV2> __result, Dictionary<string, PunchcardDefinitionV2> allDefinitions)
             {
                 // Return early if not enabled or in first 2 missions
-                if (!Controller.enabled.Value || Controller.isTutorial1Or2)
+                if (!Controller.cfg_enabled.Value || Controller.isTutorial1Or2)
                 {
                     return true;
                 }
@@ -148,7 +148,7 @@ namespace Bonfire
         [HarmonyPatch(typeof(MissionManager), nameof(MissionManager.LoadMission))]
         public class SetBreakGunPatch
         {
-            public static void Postfix(MissionManager __instance)
+            static void Postfix(MissionManager __instance)
             {
                 Controller.isTutorial1Or2 = __instance.CurrentMissionSceneName.CompareTo("Mission tutorial 1") == 0 
                                 || __instance.CurrentMissionSceneName.CompareTo("Mission tutorial 2") == 0;
