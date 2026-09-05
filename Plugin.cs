@@ -1,9 +1,7 @@
-﻿using System.Reflection;
-using HarmonyLib;
-using Il2CppSystem.Collections.Generic;
-using MelonLoader;
+﻿using MelonLoader;
 
 using Il2Cpp;
+using Il2CppInterop.Runtime.InteropTypes.Arrays;
 
 [assembly: MelonInfo(typeof(Bonfire.Plugin), Bonfire.MyPluginInfo.PLUGIN_NAME, Bonfire.MyPluginInfo.PLUGIN_VERSION, Bonfire.MyPluginInfo.PLUGIN_DEV)]
 [assembly: MelonGame("Iron Nest", "Iron Nest Heavy Turret Simulator")]
@@ -19,6 +17,9 @@ namespace Bonfire
     
     public class Plugin : MelonMod
     {
+        internal static GenericTimerSceneSync timer;
+        internal static FirstPersonController playerController;
+                
         internal static MelonPreferences_Entry<bool> _verboseLogging;
         internal static MelonPreferences_Category _configCategory;
 
@@ -27,6 +28,14 @@ namespace Bonfire
         {
             if (verbose && _verboseLogging.Value) MelonLogger.Msg($"[{MyPluginInfo.PLUGIN_NAME} - Verbose] {msg}");
             if (!verbose) MelonLogger.Msg($"[{MyPluginInfo.PLUGIN_NAME}] {msg}");
+        }
+
+        internal static float getMissionTime()
+        {
+            if (timer == null)
+                timer = UnityEngine.Object.FindObjectsByType<GenericTimerSceneSync>(UnityEngine.FindObjectsSortMode.InstanceID)[0];
+
+            return timer.CurrentTime;
         }
 
         // Initialize the mod data (including all subsystems)
@@ -46,6 +55,20 @@ namespace Bonfire
             Log("Verbose Logging Active", true);
 
             BreakGun.Controller.onInitializeBreakGun();
+            CaffeineAddict.Controller.onInitializeCaffeineAddict();
+
+            MelonPreferences.Save();
+        }
+
+        public override void OnSceneWasInitialized(int buildIndex, string sceneName)
+        {
+            Il2CppArrayBase<FirstPersonController> controllers = UnityEngine.Object.FindObjectsByType<FirstPersonController>(UnityEngine.FindObjectsSortMode.None);
+            if (playerController == null)
+            {
+                playerController = controllers[0];
+                CaffeineAddict.Controller.defaultSprintSpeed = playerController.sprintSpeed;
+                CaffeineAddict.Controller.defaultSpeed = playerController.walkSpeed;
+            }
         }
     }
 }
