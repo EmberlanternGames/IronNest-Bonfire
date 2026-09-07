@@ -2,12 +2,8 @@ using HarmonyLib;
 using System.Collections;
 using MelonLoader;
 using Il2Cpp;
-using System;
-using UnityEngine.Rendering;
-using UnityEngine.InputSystem;
-using Il2CppInterop.Runtime;
-using UnityEngine.Events;
 using UnityEngine;
+using Il2CppInterop.Runtime.InteropTypes.Arrays;
 
 // TODO: Investigate the eye opening animation to see if I can lock it and maybe replay it
 //         - Visualization here is important, if we can get it before release that's awesome.
@@ -43,7 +39,7 @@ namespace Bonfire
             internal static MelonPreferences_Category _configCategory;
             
             // Initialize all settings related to being a coffee addict
-            public static void onInitializeCaffeineAddict()
+            public static void OnInitializeCaffeineAddict()
             {
                 Plugin.Log("Initializing Caffeine Addict Features.");
                 
@@ -53,7 +49,7 @@ namespace Bonfire
                     "enabled",
                     false,
                     "Enabled",
-                    "Enables your addiction to coffee.\n  Possible Values: True/False | Default: False"
+                    "Enables your addiction to coffee.\n  Possible Values: true/false | Default: false"
                 );
                 cfg_buffTimePerPct = _configCategory.CreateEntry(
                     "buffTimePerPct",
@@ -98,6 +94,14 @@ namespace Bonfire
                     "The scalar that is applied to your speed at which you walk before the caffeine kicks in. \n  Possible Values: > 0.0 (ideally < 1.0) | Default: 0.6"
                 );
             }
+
+            public static void OnInitializeScene()
+            {
+                Il2CppArrayBase<FirstPersonController> controllers = UnityEngine.Object.FindObjectsByType<FirstPersonController>(UnityEngine.FindObjectsSortMode.None);
+                Plugin.playerController = controllers[0];
+                defaultSprintSpeed = Plugin.playerController.sprintSpeed;
+                defaultSpeed = Plugin.playerController.walkSpeed;
+            }
         }
         
         [HarmonyPatch(typeof(MissionManager), nameof(MissionManager.LoadMission))]
@@ -133,7 +137,7 @@ namespace Bonfire
         [HarmonyPatch(typeof(EspressoCupDrinker), nameof(EspressoCupDrinker.DrinkCoffee))]
         public class ApplyEffects
         {            
-            static IEnumerator nerfListener()
+            static IEnumerator NerfListener()
             {
                 while (Plugin.getMissionTime() < Controller.nerfFinishedTime)
                 {
@@ -147,7 +151,7 @@ namespace Bonfire
                 Controller.nerfRoutine = null;
             }
 
-            static IEnumerator buffListener()
+            static IEnumerator BuffListener()
             {
                 Plugin.playerController.sprintSpeed = Controller.cfg_sprintSpeedBuffMult.Value * Controller.defaultSprintSpeed;
 
@@ -190,7 +194,7 @@ namespace Bonfire
                         // Begin the buff timer
                         Controller.buffFinishedTime = proposedBuffFinishedTime;
                         Controller.nerfFinishedTime = Plugin.getMissionTime();
-                        Controller.buffRoutine = MelonCoroutines.Start(buffListener());
+                        Controller.buffRoutine = MelonCoroutines.Start(BuffListener());
                     }
                 }
                 else if (quality < Controller.cfg_minimumCoffeeQuality.Value)
@@ -211,7 +215,7 @@ namespace Bonfire
 
                         // Begin the nerf timer
                         Controller.nerfFinishedTime = proposedNerfFinishedTime;
-                        Controller.nerfRoutine = MelonCoroutines.Start(nerfListener());
+                        Controller.nerfRoutine = MelonCoroutines.Start(NerfListener());
                     }
                 }
                 else

@@ -1,4 +1,5 @@
 ﻿using MelonLoader;
+using HarmonyLib;
 
 using Il2Cpp;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
@@ -18,6 +19,8 @@ namespace Bonfire
     public class Plugin : MelonMod
     {
         internal static GenericTimerSceneSync timer;
+        private static float lastTime;
+        internal static float deltaTime;
         internal static FirstPersonController playerController;
                 
         internal static MelonPreferences_Entry<bool> _verboseLogging;
@@ -38,6 +41,18 @@ namespace Bonfire
             return timer.CurrentTime;
         }
 
+        internal static void setTimeDelta()
+        {
+            float time = getMissionTime();
+            deltaTime = time - lastTime;
+            lastTime = time;
+        }
+
+        internal static void resetTimeDelta()
+        {
+            lastTime = getMissionTime();
+        }
+
         // Initialize the mod data (including all subsystems)
         public override void OnInitializeMelon()
         {
@@ -49,26 +64,44 @@ namespace Bonfire
                 "VerboseLogging",
                 false,
                 "Verbose Logging",
-                "Logs every Bonfire action/check. Use for debug purposes unless you like big logs. \n  Possible Values: True/False | Default: False"
+                "Logs every Bonfire action/check. Use for debug purposes unless you like big logs. \n  Possible Values: true/false | Default: false"
             );
 
             Log("Verbose Logging Active", true);
 
-            BreakGun.Controller.onInitializeBreakGun();
-            CaffeineAddict.Controller.onInitializeCaffeineAddict();
+            EngineOut.Controller.OnInitializeEngineOut();
+            BreakGun.Controller.OnInitializeBreakGun();
+            CaffeineAddict.Controller.OnInitializeCaffeineAddict();
 
             MelonPreferences.Save();
         }
 
         public override void OnSceneWasInitialized(int buildIndex, string sceneName)
         {
-            Il2CppArrayBase<FirstPersonController> controllers = UnityEngine.Object.FindObjectsByType<FirstPersonController>(UnityEngine.FindObjectsSortMode.None);
-            if (playerController == null)
-            {
-                playerController = controllers[0];
-                CaffeineAddict.Controller.defaultSprintSpeed = playerController.sprintSpeed;
-                CaffeineAddict.Controller.defaultSpeed = playerController.walkSpeed;
-            }
+            if (sceneName.CompareTo("Main Menu") == 0) return;
+
+
+            // OnSceneWasInitialized runs multiple times - once at game load and also on mission load. 
+            //   Maybe also on return to mission select, unsure.
+            //   Therefore, wipe data on every init and make sure the references are fresh
+            CaffeineAddict.Controller.OnInitializeScene();
+            EngineOut.Controller.OnInitializeScene();
+        }
+
+        public override void OnUpdate()
+        {
+            Plugin.setTimeDelta();
+            EngineOut.Controller.OnUpdate();
+        }
+    }
+
+    // Handles all generalized stuff that happens on mission loading
+    [HarmonyPatch(typeof(MissionManager), nameof(MissionManager.LoadMission))]
+    public class OnLoadMissionMainPatch
+    {
+        static void Postfix()
+        {
+            Plugin.resetTimeDelta();
         }
     }
 }
