@@ -8,6 +8,7 @@ Current Features:
 - Break Guns: Apply a limited range to your guns by limiting the max charges and max angle per shot.
 - Caffeine Addict: Adds a strong motivation to make coffee every day. If you have no caffeine or a poor cup of coffee, you cannot sprint. A good cup will let you function like a human being and not a zombie. A GREAT cup will give you a speed bonus to your sprint for a certain amount of time.
 - Engine-Out: Makes the engine a necessary component of the nest by making all pressure systems rely on the engine being on. No engine means no pressure. No pressure means no loading or aiming.
+    - Note: A side effect of this is that on missions where the engine is off at the start, opening the trapdoor to get up topside can take a few tries. This is a vanilla game mechanic, I can't determine where it comes from though. Probably something with the pressure system though based on my testing.
 
 Planned Features:
 - Double-Tap: Rule 2 of Zombieland. Every enemy has double the health. The phantom now requires 8 shots to take out.

@@ -1,8 +1,6 @@
 ﻿using MelonLoader;
 using HarmonyLib;
-
 using Il2Cpp;
-using Il2CppInterop.Runtime.InteropTypes.Arrays;
 
 [assembly: MelonInfo(typeof(Bonfire.Plugin), Bonfire.MyPluginInfo.PLUGIN_NAME, Bonfire.MyPluginInfo.PLUGIN_VERSION, Bonfire.MyPluginInfo.PLUGIN_DEV)]
 [assembly: MelonGame("Iron Nest", "Iron Nest Heavy Turret Simulator")]
@@ -21,6 +19,7 @@ namespace Bonfire
         internal static GenericTimerSceneSync timer;
         private static float lastTime;
         internal static float deltaTime;
+        internal static bool missionLoaded = false;
         internal static FirstPersonController playerController;
                 
         internal static MelonPreferences_Entry<bool> _verboseLogging;
@@ -78,19 +77,32 @@ namespace Bonfire
 
         public override void OnSceneWasInitialized(int buildIndex, string sceneName)
         {
-            if (sceneName.CompareTo("Main Menu") == 0) return;
-
+            if (MissionManager.Instance.CurrentMission == null) 
+            {
+                missionLoaded = false;
+                return;
+            }
 
             // OnSceneWasInitialized runs multiple times - once at game load and also on mission load. 
             //   Maybe also on return to mission select, unsure.
             //   Therefore, wipe data on every init and make sure the references are fresh
             CaffeineAddict.Controller.OnInitializeScene();
             EngineOut.Controller.OnInitializeScene();
+            missionLoaded = true;
+        }
+
+        public override void OnSceneWasUnloaded(int buildIndex, string sceneName)
+        {
+            Plugin.Log("Scene Unloaded", true);
+            missionLoaded = false;
         }
 
         public override void OnUpdate()
         {
-            Plugin.setTimeDelta();
+            // Only update if in a loaded mission
+            if (MissionManager.Instance.CurrentMission == null || !missionLoaded) return;
+
+            setTimeDelta();
             EngineOut.Controller.OnUpdate();
         }
     }

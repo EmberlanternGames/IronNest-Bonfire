@@ -1,15 +1,9 @@
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-
-using System.Net;
-using System.Reflection;
 using HarmonyLib;
 using Il2Cpp;
-using Il2CppInterop.Runtime;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
 using MelonLoader;
-using UnityEngine.Events;
 using UnityEngine.InputSystem.Utilities;
 
 namespace Bonfire
@@ -48,9 +42,8 @@ namespace Bonfire
             internal static MelonPreferences_Entry<float> cfg_pressureIncRate;
             internal static MelonPreferences_Entry<float> cfg_pressureDecRatePerValve;
             internal static MelonPreferences_Entry<float> cfg_engineTrickleMult;
-            internal static MelonPreferences_Entry<float> cfg_engineShutoffThreshold;
-            internal static MelonPreferences_Entry<float> cfg_enginePowerOnPressure;
-            internal static MelonPreferences_Entry<bool> cfg_engineCutoutEnabled;
+            internal static MelonPreferences_Entry<int> cfg_engineShutoffThreshold;
+            // internal static MelonPreferences_Entry<bool> cfg_engineCutoutEnabled;
             internal static MelonPreferences_Category _configCategory;
 
             // Initialize all settings related to the engine/pressure overhaul
@@ -80,28 +73,22 @@ namespace Bonfire
                 );
                 cfg_engineTrickleMult = _configCategory.CreateEntry(
                     "engineTrickleMult",
-                    0.02f,
+                    0.1f,
                     "Pressure Decrease Rate",
-                    "The rate at which each system's pressure decreases (%/sec/valve) when the engine is off. \n  Possible Values: >= 0.0 | Default: 0.02 (drops from full in 50 sec)"
+                    "The rate at which each system's pressure decreases (%/sec) when the engine is off. \n  Possible Values: >= 0.0 | Default: 0.1 (drops from full in 10 sec)"
                 );
                 cfg_engineShutoffThreshold = _configCategory.CreateEntry(
                     "engineShutoffThreshold",
-                    0.73f,
-                    "Engine Pressure Shutoff Threshold",
-                    "The lowest the total average pressure may get before the engine shuts off. \n  Possible Values: >= 0.0 | Default: 0.73 (73% pressure of 11 systems means 3 fully drained)"
+                    3,
+                    "Engine System Shutoff Threshold",
+                    "The the fewest number of systems that can be active before the nest loses power.\n  Possible Values: >= 0 | Default: 3"
                 );
-                cfg_enginePowerOnPressure = _configCategory.CreateEntry(
-                    "enginePowerOnPressure",
-                    0.75f,
-                    "Powerup Pressure Boost",
-                    "Each system is brought to this pressure setting on powerup. \n  Possible Values: >= engineShutoffThreshold | Default: 0.75 (Just over engineShutoffThreshold value)"
-                );
-                cfg_engineCutoutEnabled = _configCategory.CreateEntry(
-                    "engineCutoutEnabled",
-                    true,
-                    "Enable Engine-Cutting Impacts",
-                    "Whether to make some impacts cut power to the engine. \n  Possible Values: true/false | Default: true"
-                );
+                // cfg_engineCutoutEnabled = _configCategory.CreateEntry(
+                //     "engineCutoutEnabled",
+                //     true,
+                //     "Enable Engine-Cutting Impacts",
+                //     "Whether to make some impacts cut power to the engine. \n  Possible Values: true/false | Default: true"
+                // );
             }
 
             // Always initialize so UI can enable mid-game
@@ -131,6 +118,7 @@ namespace Bonfire
                 if (!cfg_enabled.Value || Collection.pressureSystems == null)
                     return;
 
+                float totalEmpty = 0;
                 // Calculate the fill rate (positive or negative) to be applied to each pressure system
                 foreach (HighPressureSystemManager manager in Collection.pressureSystems)
                 {
@@ -141,10 +129,30 @@ namespace Bonfire
                     }
                     Collection.pressureSystemHealthValues[manager] += totalFillRate;
                     Collection.pressureSystemHealthValues[manager] = Math.Min(Math.Max(Collection.pressureSystemHealthValues[manager], 0.0f), 1.0f);
+                    totalEmpty += Collection.pressureSystemHealthValues[manager] == 0.0f ? 1 : 0;
 
                     // Apply the health via `ComputeHealthTestPatch`
                     manager.RecomputeHealthAndNotify();
                 }
+
+                // Stop the engine if enough valves are open
+                EnginePowerController engine = Collection.GetEngine();
+                if (engine.dieselEngine.EnginesRunning 
+                    && engine.dieselEngine.WarningCountdownRemaining == 0.0f
+                    && totalEmpty >= cfg_engineShutoffThreshold.Value)
+                {
+                    engine.dieselEngine.ForceStop();
+                }
+            }
+        }
+
+        // Disables the requisition console by blocking AttemptRequisition on a non-running engine
+        [HarmonyPatch(typeof(RequisitionSlot), nameof(RequisitionSlot.AttemptRequisition))]
+        public class DisableRequisitionConsole
+        {
+            static bool Prefix()
+            {
+                return Collection.GetEngine().dieselEngine.EnginesRunning;
             }
         }
 
