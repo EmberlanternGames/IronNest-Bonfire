@@ -22,7 +22,7 @@ namespace Bonfire
             internal static MelonPreferences_Category _configCategory;
 
             // Initialize all settings related to breaking the gun
-            public static void onInitializeBreakGun()
+            public static void OnInitializeBreakGun()
             {
                 Plugin.Log("Initializing Gun Breaking Features.");
 
@@ -32,7 +32,7 @@ namespace Bonfire
                     "enabled",
                     false,
                     "Enabled",
-                    "Enables the limits for the gun angle and max powder charges per shot. \n  Possible Values: True/False | Default: False"
+                    "Enables the limits for the gun angle and max powder charges per shot.\n  Warning: This will make  \n  Useful Tip: Max Range = (maxAngle * maxCharges) / 12\n  Possible Values: true/false | Default: false"
                 );
                 cfg_maxAngle = _configCategory.CreateEntry(
                     "maxAngle",

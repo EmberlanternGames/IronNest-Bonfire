@@ -6,10 +6,11 @@ This is a difficulty enhancing mod, similar to Subnautica Deathrun, adding a sui
 
 Current Features:
 - Break Guns: Apply a limited range to your guns by limiting the max charges and max angle per shot.
-
-Planned Features:
 - Caffeine Addict: Adds a strong motivation to make coffee every day. If you have no caffeine or a poor cup of coffee, you cannot sprint. A good cup will let you function like a human being and not a zombie. A GREAT cup will give you a speed bonus to your sprint for a certain amount of time.
 - Engine-Out: Makes the engine a necessary component of the nest by making all pressure systems rely on the engine being on. No engine means no pressure. No pressure means no loading or aiming.
+    - Note: A side effect of this is that on missions where the engine is off at the start, opening the trapdoor to get up topside can take a few tries. This is a vanilla game mechanic, I can't determine where it comes from though. Probably something with the pressure system though based on my testing.
+
+Planned Features:
 - Double-Tap: Rule 2 of Zombieland. Every enemy has double the health. The phantom now requires 8 shots to take out.
 - Imprecise Movement: The nest is not very accurate at moving long distances. a +-1 degree differential in either direction means you can't be sure where you ended up, only where along the edge of the distance circle you lie. Position reports and re-triangulation is recommended. Intended to pair "well" with Break Guns (and by that I mean synergy in making the game harder).
 
@@ -33,13 +34,13 @@ Please include the following:
 
 Please submit to the bugs to the Bugs tab in Nexus.
 
-## Compatibility
+## Mod Compatibility
 
 This mod will overhaul many systems in due time. Some mods may not be compatible. If the mods affect gameplay features that already exist, be warned!
 
 ## AI Disclosure
 
-This code was written 100% by a fleshy meatbag. AI was used to assist (basics of learning to mod and acting as a sounding board).
+This code was written 100% by a fleshy meatbag. AI was used to assist (acting as a sounding board, providing analysis of existing code, and reviewing my code).
 
 ## License
 
