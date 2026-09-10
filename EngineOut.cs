@@ -10,7 +10,7 @@ namespace Bonfire
 {
     namespace EngineOut
     {
-        public static class Collection
+        public static class Container
         {
             internal static EnginePowerController _engine;
             // Lazy-load the engine
@@ -39,9 +39,10 @@ namespace Bonfire
         public static class Controller
         {            
             internal static MelonPreferences_Entry<bool> cfg_enabled;
+            internal static MelonPreferences_Entry<bool> cfg_disableLeverMalfunctions;
             internal static MelonPreferences_Entry<float> cfg_pressureIncRate;
             internal static MelonPreferences_Entry<float> cfg_pressureDecRatePerValve;
-            internal static MelonPreferences_Entry<float> cfg_engineTrickleMult;
+            internal static MelonPreferences_Entry<float> cfg_engineTrickleRate;
             internal static MelonPreferences_Entry<int> cfg_engineShutoffThreshold;
             // internal static MelonPreferences_Entry<bool> cfg_engineCutoutEnabled;
             internal static MelonPreferences_Category _configCategory;
@@ -59,6 +60,12 @@ namespace Bonfire
                     "Enabled",
                     "Enables the overhauled engine/pressure system. \n  Possible Values: true/false | Default: false"
                 );
+                cfg_disableLeverMalfunctions = _configCategory.CreateEntry(
+                    "disableLeverMalfunctions",
+                    true,
+                    "Disable Pressure-Related Lever Malfunctions",
+                    "Removes the possibility for the engine and trapdoor levers to malfunction \n  Possible Values: true/false | Default: true"
+                );
                 cfg_pressureIncRate = _configCategory.CreateEntry(
                     "pressureIncRate",
                     0.025f,
@@ -71,17 +78,17 @@ namespace Bonfire
                     "Pressure Decrease Rate",
                     "The rate at which the pressure decreases (%/sec/valve) when valves are open. \n  Possible Values: >= 0.0 | Default: 0.05 (1 open drops in 20 sec, 2 in 10, 3 in 6.667 sec)"
                 );
-                cfg_engineTrickleMult = _configCategory.CreateEntry(
-                    "engineTrickleMult",
+                cfg_engineTrickleRate = _configCategory.CreateEntry(
+                    "engineTrickleRate",
                     0.1f,
-                    "Pressure Decrease Rate",
+                    "Engine Trickle Rate",
                     "The rate at which each system's pressure decreases (%/sec) when the engine is off. \n  Possible Values: >= 0.0 | Default: 0.1 (drops from full in 10 sec)"
                 );
                 cfg_engineShutoffThreshold = _configCategory.CreateEntry(
                     "engineShutoffThreshold",
                     3,
                     "Engine System Shutoff Threshold",
-                    "The the fewest number of systems that can be active before the nest loses power.\n  Possible Values: >= 0 | Default: 3"
+                    "When this number of systems have 0 pressure, the nest loses power.\n  Possible Values: > 0 | Default: 3"
                 );
                 // cfg_engineCutoutEnabled = _configCategory.CreateEntry(
                 //     "engineCutoutEnabled",
@@ -94,51 +101,53 @@ namespace Bonfire
             // Always initialize so UI can enable mid-game
             public static void OnInitializeScene()
             {
-                bool powerOn = Collection.GetEngine().dieselEngine.CaptureMissionState().EnginesRunning;
+                bool powerOn = Container.GetEngine().dieselEngine.EnginesRunning;
                 Plugin.Log($"Engine On = {powerOn}", true);
 
-                if (Collection.pressureSystems != null && Collection.pressureSystems.Count > 0)
+                if (Container.pressureSystems != null && Container.pressureSystems.Count > 0)
+                {
                     Plugin.Log("Wiping pressure system data to rebuild for the mission", true);
+                    Container.pressureSystems.Clear();
+                }
 
                 // Initialize all pressure system variables
-                Collection.pressureSystems.Clear();
-                Collection.pressureSystems = UnityEngine.Object.FindObjectsByType<HighPressureSystemManager>(UnityEngine.FindObjectsSortMode.None);
-                Plugin.Log($"Pressure Systems: {Collection.pressureSystems.Count}", true);
+                Container.pressureSystems = UnityEngine.Object.FindObjectsByType<HighPressureSystemManager>(UnityEngine.FindObjectsSortMode.None);
+                Plugin.Log($"Pressure Systems: {Container.pressureSystems.Count}", true);
 
-                Collection.pressureSystemHealthValues.Clear();
-                foreach (HighPressureSystemManager manager in Collection.pressureSystems)
+                Container.pressureSystemHealthValues.Clear();
+                foreach (HighPressureSystemManager manager in Container.pressureSystems)
                 {
                     Plugin.Log($"  System: {manager.systemId} initialized", true);
-                    Collection.pressureSystemHealthValues.Add(manager, powerOn ? 1.0f : 0.0f);
+                    Container.pressureSystemHealthValues.Add(manager, powerOn ? 1.0f : 0.0f);
                 }
             }
 
             public static void OnUpdate()
             {
-                if (!cfg_enabled.Value || Collection.pressureSystems == null)
+                if (!cfg_enabled.Value || Container.pressureSystems == null)
                     return;
 
-                float totalEmpty = 0;
+                int totalEmpty = 0;
+                EnginePowerController engine = Container.GetEngine();
                 // Calculate the fill rate (positive or negative) to be applied to each pressure system
-                foreach (HighPressureSystemManager manager in Collection.pressureSystems)
+                foreach (HighPressureSystemManager manager in Container.pressureSystems)
                 {
-                    float totalFillRate = Collection.GetEngine().Power > 0.0f ? Controller.cfg_pressureIncRate.Value * Plugin.deltaTime : -Controller.cfg_engineTrickleMult.Value * Plugin.deltaTime;
+                    float totalFillRate = engine.dieselEngine.EnginesRunning ? cfg_pressureIncRate.Value * Plugin.deltaTime : -cfg_engineTrickleRate.Value * Plugin.deltaTime;
                     foreach (ValveController valve in manager.valves)
                     {
-                        totalFillRate -= Controller.cfg_pressureDecRatePerValve.Value * valve.GetDamage01() * Plugin.deltaTime;
+                        totalFillRate -= cfg_pressureDecRatePerValve.Value * valve.GetDamage01() * Plugin.deltaTime;
                     }
-                    Collection.pressureSystemHealthValues[manager] += totalFillRate;
-                    Collection.pressureSystemHealthValues[manager] = Math.Min(Math.Max(Collection.pressureSystemHealthValues[manager], 0.0f), 1.0f);
-                    totalEmpty += Collection.pressureSystemHealthValues[manager] == 0.0f ? 1 : 0;
+                    Container.pressureSystemHealthValues[manager] += totalFillRate;
+                    Container.pressureSystemHealthValues[manager] = Math.Clamp(Container.pressureSystemHealthValues[manager], 0.0f, 1.0f);
+                    totalEmpty += Container.pressureSystemHealthValues[manager] > 0.0f ? 0 : 1;
 
                     // Apply the health via `ComputeHealthTestPatch`
                     manager.RecomputeHealthAndNotify();
                 }
 
                 // Stop the engine if enough valves are open
-                EnginePowerController engine = Collection.GetEngine();
                 if (engine.dieselEngine.EnginesRunning 
-                    && engine.dieselEngine.WarningCountdownRemaining == 0.0f
+                    && engine.dieselEngine.WarningCountdownRemaining <= 0.0f
                     && totalEmpty >= cfg_engineShutoffThreshold.Value)
                 {
                     engine.dieselEngine.ForceStop();
@@ -152,20 +161,42 @@ namespace Bonfire
         {
             static bool Prefix()
             {
-                return Collection.GetEngine().dieselEngine.EnginesRunning;
+                return !Plugin.missionLoaded || !Controller.cfg_enabled.Value || Container.GetEngine().dieselEngine.EnginesRunning;
             }
         }
 
         // Hijacks the health value of the system to be driven by our system, not the game's vanilla system
         [HarmonyPatch(typeof(HighPressureSystemManager), nameof(HighPressureSystemManager.ComputeHealth))]
-        public class ComputeHealthTestPatch
+        public class ComputeHealthHijackPatch
         {
             static void Postfix(HighPressureSystemManager __instance, ref float __result)
             {
-                if (!Controller.cfg_enabled.Value)
+                if (!Plugin.missionLoaded || !Controller.cfg_enabled.Value)
                     return;
 
-                __result = Collection.pressureSystemHealthValues[__instance];
+                float resultStored = __result;
+                if (!Container.pressureSystemHealthValues.TryGetValue(__instance, out __result))
+                    __result = resultStored;
+            }
+        }
+
+        [HarmonyPatch(typeof(LookAtTarget), nameof(LookAtTarget.EvaluateMalfunction))]
+        public class SuppressMalfunctionPatch
+        {
+            static bool Prefix(LookAtTarget __instance)
+            {
+                // If I can't figure out the exact names of the levers (they're just named "Lever" in the name values) 
+                //  then I'll use the EntityId (look at the numbers if this fails in the future, this is IMPERATIVE with every patch)
+                if (Controller.cfg_disableLeverMalfunctions.Value 
+                        && (__instance.GetEntityId().ToString().CompareTo("156632") == 0
+                        || __instance.GetEntityId().ToString().CompareTo("149002") == 0))
+                {
+                    Plugin.Log("Supressed Malfunction", true);
+                    return false;
+                }
+
+                // Yeah I can do this in 1 line. This is more readable
+                return true;
             }
         }
     }

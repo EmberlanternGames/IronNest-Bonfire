@@ -1,9 +1,15 @@
 ﻿using MelonLoader;
 using HarmonyLib;
 using Il2Cpp;
+using Il2CppInterop.Runtime.InteropTypes.Arrays;
+using UnityEngine;
+using UnityEngine.Events;
+using Bonfire.ModSettingsMenuUI;
 
 [assembly: MelonInfo(typeof(Bonfire.Plugin), Bonfire.MyPluginInfo.PLUGIN_NAME, Bonfire.MyPluginInfo.PLUGIN_VERSION, Bonfire.MyPluginInfo.PLUGIN_DEV)]
 [assembly: MelonGame("Iron Nest", "Iron Nest Heavy Turret Simulator")]
+
+// NOTE FOR EMBER: When updating to new patches, make sure lever ids are good
 
 namespace Bonfire
 {
@@ -35,7 +41,9 @@ namespace Bonfire
         internal static float getMissionTime()
         {
             if (timer == null)
-                timer = UnityEngine.Object.FindObjectsByType<GenericTimerSceneSync>(UnityEngine.FindObjectsSortMode.InstanceID)[0];
+            {
+                timer = Object.FindObjectsByType<GenericTimerSceneSync>(FindObjectsSortMode.InstanceID)[0];
+            }
 
             return timer.CurrentTime;
         }
@@ -77,43 +85,56 @@ namespace Bonfire
 
         public override void OnSceneWasInitialized(int buildIndex, string sceneName)
         {
-            if (MissionManager.Instance.CurrentMission == null) 
+            bool loading = MissionManager.Instance != null && MissionManager.Instance.CurrentMission != null;
+            if (loading) 
             {
-                missionLoaded = false;
-                return;
+                // OnSceneWasInitialized runs multiple times - once at game load and also on mission load. 
+                //   Maybe also on return to mission select, unsure.
+                //   Therefore, wipe data on every init and make sure the references are fresh
+                resetTimeDelta();
+                CaffeineAddict.Controller.OnInitializeScene();
+                EngineOut.Controller.OnInitializeScene();
+                Log("Scene Loaded For Mod", true);
             }
 
-            // OnSceneWasInitialized runs multiple times - once at game load and also on mission load. 
-            //   Maybe also on return to mission select, unsure.
-            //   Therefore, wipe data on every init and make sure the references are fresh
-            CaffeineAddict.Controller.OnInitializeScene();
-            EngineOut.Controller.OnInitializeScene();
-            missionLoaded = true;
+            // Always fix the rotation bug
+            Il2CppArrayBase<DialInteractable> dials = UnityEngine.Object.FindObjectsByType<DialInteractable>(UnityEngine.FindObjectsSortMode.None);
+            Log($"  Patching rotation system lever bug for this scene", true);
+            foreach (DialInteractable dial in dials)
+            {
+                if (dial.highPressureSystemManager == null || dial.highPressureSystemManager.systemId.CompareTo("RotationHydrolics") != 0) continue;
+                
+                dial.currentRotationAngle = 0.0f;
+                dial.lastRawAngle = 0.0f;
+                dial.lastAngle = 0.0f;
+                dial.currentRotationAngle = 0.0f;
+                dial.detentCurrentAngle = 0.0f;
+                dial.detentTargetAngle = 0.0f;
+                dial.accumulatedValue = 0.0f;
+                Log($"  Patched for scene", true);
+            }
+
+            missionLoaded = loading;
+            
+            if (loading)
+                Log("Scene Loaded For Mission", true);
+            else 
+                Log("Scene Loaded For Main Menu", true);
         }
 
         public override void OnSceneWasUnloaded(int buildIndex, string sceneName)
         {
-            Plugin.Log("Scene Unloaded", true);
+            Log("Scene Unloaded", true);
             missionLoaded = false;
         }
 
         public override void OnUpdate()
         {
             // Only update if in a loaded mission
-            if (MissionManager.Instance.CurrentMission == null || !missionLoaded) return;
+            if (MissionManager.Instance == null || MissionManager.Instance.CurrentMission == null || !missionLoaded) return;
 
             setTimeDelta();
             EngineOut.Controller.OnUpdate();
-        }
-    }
-
-    // Handles all generalized stuff that happens on mission loading
-    [HarmonyPatch(typeof(MissionManager), nameof(MissionManager.LoadMission))]
-    public class OnLoadMissionMainPatch
-    {
-        static void Postfix()
-        {
-            Plugin.resetTimeDelta();
         }
     }
 }

@@ -17,8 +17,8 @@ namespace Bonfire
         // Controller system for the caffeine addict side of the Bonfire mod
         public static class Controller
         {
-            internal static float defaultSprintSpeed = 0.0f;
-            internal static float defaultSpeed = 0.0f;
+            internal static float defaultSprintSpeed = -1.0f;
+            internal static float defaultSpeed = -1.0f;
             internal static float nerfFinishedTime = -1.0f;
             internal static float buffFinishedTime = 0.0f;
             internal static float brewReactivatedTime = 0.0f;
@@ -35,6 +35,7 @@ namespace Bonfire
             internal static MelonPreferences_Entry<float> cfg_timeBetweenBrews;
             internal static MelonPreferences_Entry<float> cfg_sprintSpeedBuffMult;
             internal static MelonPreferences_Entry<float> cfg_walkSpeedNerfMult;
+            internal static MelonPreferences_Entry<bool> cfg_sprintNerfEnabled;
             internal static MelonPreferences_Entry<bool> cfg_enabled;
             internal static MelonPreferences_Category _configCategory;
             
@@ -93,44 +94,49 @@ namespace Bonfire
                     "Nerfed Speed Multiplier",
                     "The scalar that is applied to your speed at which you walk before the caffeine kicks in. \n  Possible Values: > 0.0 (ideally < 1.0) | Default: 0.6"
                 );
+                cfg_sprintNerfEnabled = _configCategory.CreateEntry(
+                    "sprintNerfEnabled",
+                    true,
+                    "Sprint Nerf on No Caffeine",
+                    "When this is true, the sprint nerf will apply to your player when the feature is on.\n  When false, it does not apply when the feature is on. \n  Possible Values: true/false | Default: true"
+                );
             }
 
             public static void OnInitializeScene()
             {
-                Il2CppArrayBase<FirstPersonController> controllers = UnityEngine.Object.FindObjectsByType<FirstPersonController>(UnityEngine.FindObjectsSortMode.None);
-                Plugin.playerController = controllers[0];
-                defaultSprintSpeed = Plugin.playerController.sprintSpeed;
-                defaultSpeed = Plugin.playerController.walkSpeed;
-            }
-        }
-        
-        [HarmonyPatch(typeof(MissionManager), nameof(MissionManager.LoadMission))]
-        public class SetupCaffeineAddictForMission
-        {
-            static void Postfix(MissionManager __instance)
-            {
-                if (!Controller.cfg_enabled.Value) return;
-
-                if (Controller.nerfRoutine != null)
+                if (defaultSpeed < 0)
                 {
-                    MelonCoroutines.Stop(Controller.nerfRoutine);
-                    Controller.nerfRoutine = null;
+                    Il2CppArrayBase<FirstPersonController> controllers = Object.FindObjectsByType<FirstPersonController>(FindObjectsSortMode.None);
+                    Plugin.playerController = controllers[0];
+                    defaultSprintSpeed = Plugin.playerController.sprintSpeed;
+                    defaultSpeed = Plugin.playerController.walkSpeed;
+                }
+                
+                if (!cfg_enabled.Value) return;
+
+                if (nerfRoutine != null)
+                {
+                    MelonCoroutines.Stop(nerfRoutine);
+                    nerfRoutine = null;
                 }
 
-                if (Controller.buffRoutine != null)
+                if (buffRoutine != null)
                 {
-                    MelonCoroutines.Stop(Controller.buffRoutine);
-                    Controller.buffRoutine = null;
+                    MelonCoroutines.Stop(buffRoutine);
+                    buffRoutine = null;
                 }
 
-                Controller.nerfFinishedTime = -1.0f;
-                Controller.buffFinishedTime = 0.0f;
-                Controller.brewReactivatedTime = 0.0f;
+                nerfFinishedTime = -1.0f;
+                buffFinishedTime = 0.0f;
+                brewReactivatedTime = Plugin.getMissionTime();
 
-                // Make the player slow and not able to sprint from start of mission
-                Plugin.playerController.enableSprint = false;
-                Plugin.playerController.sprintSpeed = Controller.defaultSprintSpeed;
-                Plugin.playerController.walkSpeed = Controller.defaultSpeed * Controller.cfg_walkSpeedNerfMult.Value;
+                Plugin.playerController.walkSpeed = defaultSpeed * cfg_walkSpeedNerfMult.Value;
+                if (cfg_sprintNerfEnabled.Value)
+                {
+                    // Make the player slow and not able to sprint from start of mission
+                    Plugin.playerController.enableSprint = false;
+                    Plugin.playerController.sprintSpeed = defaultSprintSpeed;
+                }
             }
         }
 
@@ -213,9 +219,11 @@ namespace Bonfire
                             Controller.nerfRoutine = null;
                         }
 
-                        // Begin the nerf timer
-                        Controller.nerfFinishedTime = proposedNerfFinishedTime;
-                        Controller.nerfRoutine = MelonCoroutines.Start(NerfListener());
+                        if (Controller.cfg_sprintNerfEnabled.Value)
+                        {
+                            Controller.nerfFinishedTime = proposedNerfFinishedTime;
+                            Controller.nerfRoutine = MelonCoroutines.Start(NerfListener());
+                        }
                     }
                 }
                 else

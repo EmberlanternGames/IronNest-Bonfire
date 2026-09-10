@@ -34,13 +34,13 @@ Please include the following:
 
 Please submit to the bugs to the Bugs tab in Nexus.
 
-## Compatibility
+## Mod Compatibility
 
 This mod will overhaul many systems in due time. Some mods may not be compatible. If the mods affect gameplay features that already exist, be warned!
 
 ## AI Disclosure
 
-This code was written 100% by a fleshy meatbag. AI was used to assist (basics of learning to mod and acting as a sounding board).
+This code was written 100% by a fleshy meatbag. AI was used to assist (acting as a sounding board, providing analysis of existing code, and reviewing my code).
 
 ## License
 
