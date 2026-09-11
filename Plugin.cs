@@ -1,10 +1,7 @@
 ﻿using MelonLoader;
-using HarmonyLib;
 using Il2Cpp;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
 using UnityEngine;
-using UnityEngine.Events;
-using Bonfire.ModSettingsMenuUI;
 
 [assembly: MelonInfo(typeof(Bonfire.Plugin), Bonfire.MyPluginInfo.PLUGIN_NAME, Bonfire.MyPluginInfo.PLUGIN_VERSION, Bonfire.MyPluginInfo.PLUGIN_DEV)]
 [assembly: MelonGame("Iron Nest", "Iron Nest Heavy Turret Simulator")]
@@ -22,11 +19,11 @@ namespace Bonfire
     
     public class Plugin : MelonMod
     {
+        internal static FirstPersonController playerController;
         internal static GenericTimerSceneSync timer;
+        internal static bool missionLoaded = false;
         private static float lastTime;
         internal static float deltaTime;
-        internal static bool missionLoaded = false;
-        internal static FirstPersonController playerController;
                 
         internal static MelonPreferences_Entry<bool> _verboseLogging;
         internal static MelonPreferences_Category _configCategory;
@@ -38,6 +35,8 @@ namespace Bonfire
             if (!verbose) MelonLogger.Msg($"[{MyPluginInfo.PLUGIN_NAME}] {msg}");
         }
 
+        // If the local reference to the timer is not initialized, init it
+        //   Then provide the time.
         internal static float getMissionTime()
         {
             if (timer == null)
@@ -48,6 +47,7 @@ namespace Bonfire
             return timer.CurrentTime;
         }
 
+        // Sets the time delta between last frame and this.
         internal static void setTimeDelta()
         {
             float time = getMissionTime();
@@ -55,6 +55,7 @@ namespace Bonfire
             lastTime = time;
         }
 
+        // Sets the time delta to this moment for init purposes
         internal static void resetTimeDelta()
         {
             lastTime = getMissionTime();
@@ -71,7 +72,7 @@ namespace Bonfire
                 "VerboseLogging",
                 false,
                 "Verbose Logging",
-                "Logs every Bonfire action/check. Use for debug purposes unless you like big logs. \n  Possible Values: true/false | Default: false"
+                "Logs many Bonfire actions/checks. Use for debug purposes unless you like big logs. \n  Possible Values: true/false | Default: false"
             );
 
             Log("Verbose Logging Active", true);

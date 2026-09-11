@@ -12,8 +12,8 @@ namespace Bonfire
     {
         public static class Container
         {
-            internal static EnginePowerController _engine;
             // Lazy-load the engine
+            internal static EnginePowerController _engine;
             internal static EnginePowerController GetEngine()
             {
                 if (_engine == null)
@@ -31,6 +31,7 @@ namespace Bonfire
                 return _engine;
             } 
 
+            // Pressure system info for applying the health values to
             internal static Il2CppArrayBase<HighPressureSystemManager> pressureSystems;
             internal static Dictionary<HighPressureSystemManager, float> pressureSystemHealthValues = new();
         }
@@ -58,31 +59,31 @@ namespace Bonfire
                     "enabled",
                     false,
                     "Enabled",
-                    "Enables the overhauled engine/pressure system. \n  Possible Values: true/false | Default: false"
+                    "Enables the overhauled engine/pressure system.\n  Possible Values: true/false | Default: false"
                 );
                 cfg_disableLeverMalfunctions = _configCategory.CreateEntry(
                     "disableLeverMalfunctions",
                     true,
                     "Disable Pressure-Related Lever Malfunctions",
-                    "Removes the possibility for the engine and trapdoor levers to malfunction \n  Possible Values: true/false | Default: true"
+                    "Removes the possibility for the engine and trapdoor levers to malfunction.\n  Possible Values: true/false | Default: true"
                 );
                 cfg_pressureIncRate = _configCategory.CreateEntry(
                     "pressureIncRate",
                     0.025f,
                     "Pressure Increase Rate",
-                    "The rate at which the pressure increases (%/sec) in a system when all valves are closed. \n  Possible Values: >= 0.0 | Default: 0.025 (maxes in 40 sec)"
+                    "The rate at which the pressure increases (%/sec) in a system when all valves are closed.\n  Possible Values: >= 0.0 | Default: 0.025 (maxes in 40 sec)"
                 );
                 cfg_pressureDecRatePerValve = _configCategory.CreateEntry(
                     "pressureDecRatePerValve",
-                    0.05f,
+                    0.1f,
                     "Pressure Decrease Rate",
-                    "The rate at which the pressure decreases (%/sec/valve) when valves are open. \n  Possible Values: >= 0.0 | Default: 0.05 (1 open drops in 20 sec, 2 in 10, 3 in 6.667 sec)"
+                    "The rate at which the pressure decreases (%/sec/valve) when valves are open.\n  Possible Values: >= 0.0 | Default: 0.1"
                 );
                 cfg_engineTrickleRate = _configCategory.CreateEntry(
                     "engineTrickleRate",
                     0.1f,
                     "Engine Trickle Rate",
-                    "The rate at which each system's pressure decreases (%/sec) when the engine is off. \n  Possible Values: >= 0.0 | Default: 0.1 (drops from full in 10 sec)"
+                    "The rate at which each system's pressure decreases (%/sec) when the engine is off.\n  Possible Values: >= 0.0 | Default: 0.1"
                 );
                 cfg_engineShutoffThreshold = _configCategory.CreateEntry(
                     "engineShutoffThreshold",
@@ -110,11 +111,10 @@ namespace Bonfire
                     Container.pressureSystems.Clear();
                 }
 
-                // Initialize all pressure system variables
+                // Initialize all pressure system variables for the mission
+                Container.pressureSystemHealthValues.Clear();
                 Container.pressureSystems = UnityEngine.Object.FindObjectsByType<HighPressureSystemManager>(UnityEngine.FindObjectsSortMode.None);
                 Plugin.Log($"Pressure Systems: {Container.pressureSystems.Count}", true);
-
-                Container.pressureSystemHealthValues.Clear();
                 foreach (HighPressureSystemManager manager in Container.pressureSystems)
                 {
                     Plugin.Log($"  System: {manager.systemId} initialized", true);
@@ -127,8 +127,10 @@ namespace Bonfire
                 if (!cfg_enabled.Value || Container.pressureSystems == null)
                     return;
 
+                // Track the total number of empty systems
                 int totalEmpty = 0;
                 EnginePowerController engine = Container.GetEngine();
+
                 // Calculate the fill rate (positive or negative) to be applied to each pressure system
                 foreach (HighPressureSystemManager manager in Container.pressureSystems)
                 {
@@ -137,6 +139,8 @@ namespace Bonfire
                     {
                         totalFillRate -= cfg_pressureDecRatePerValve.Value * valve.GetDamage01() * Plugin.deltaTime;
                     }
+
+                    // Apply the fill rate to each pressure system, clamping them to [0-1]
                     Container.pressureSystemHealthValues[manager] += totalFillRate;
                     Container.pressureSystemHealthValues[manager] = Math.Clamp(Container.pressureSystemHealthValues[manager], 0.0f, 1.0f);
                     totalEmpty += Container.pressureSystemHealthValues[manager] > 0.0f ? 0 : 1;
@@ -174,12 +178,12 @@ namespace Bonfire
                 if (!Plugin.missionLoaded || !Controller.cfg_enabled.Value)
                     return;
 
-                float resultStored = __result;
-                if (!Container.pressureSystemHealthValues.TryGetValue(__instance, out __result))
-                    __result = resultStored;
+                // Applies the stored health values to the systems
+                __result = Container.pressureSystemHealthValues[__instance];
             }
         }
 
+        // Suppresses the pressure-related malfunctions that are applied to the trapdoor levers
         [HarmonyPatch(typeof(LookAtTarget), nameof(LookAtTarget.EvaluateMalfunction))]
         public class SuppressMalfunctionPatch
         {

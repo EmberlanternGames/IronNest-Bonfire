@@ -32,19 +32,19 @@ namespace Bonfire
                     "enabled",
                     false,
                     "Enabled",
-                    "Enables the limits for the gun angle and max powder charges per shot.\n  Warning: This will make  \n  Useful Tip: Max Range = (maxAngle * maxCharges) / 12\n  Possible Values: true/false | Default: false"
+                    "Enables the limits for the gun angle and max powder charges per shot (first 2 missions not included).\n  Warning: This will make White Shells' traitor ending very, very painful... \n  Useful Tip: Max Range = (maxAngle * maxCharges) / 12\n  Possible Values: true/false | Default: false"
                 );
                 cfg_maxAngle = _configCategory.CreateEntry(
                     "maxAngle",
                     15.0f,
                     "Max Angle",
-                    "Limits the maximum elevation angle the gun may raise to. \n  Possible Values: [0.0 - 60.0] | Default: 15.0"
+                    "Limits the maximum elevation angle the gun may raise to.\n  Possible Values: [0.0 - 60.0] | Default: 15.0"
                 );
                 cfg_maxCharges = _configCategory.CreateEntry(
                     "maxCharges",
                     2,
                     "Max Powder Charges",
-                    "Limits the number of charges you may load per shot. \n  Possible Values: [1 - 6] | Default: 2"
+                    "Limits the number of charges you may load per shot.\n  Possible Values: [1 - 6] | Default: 2"
                 );
             }
         }
@@ -145,6 +145,7 @@ namespace Bonfire
         }
 
         // Only allow the gun to break from this part of the mod when not in mission 1 or 2
+        //   (when the req console is inactive, no movement allowed)
         [HarmonyPatch(typeof(MissionManager), nameof(MissionManager.LoadMission))]
         public class SetBreakGunPatch
         {
