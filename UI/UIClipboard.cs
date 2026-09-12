@@ -9,7 +9,6 @@ using UnityEngine.Events;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-using HarmonyLib;
 using MelonLoader;
 
 // MASSIVE MASSIVE thank you to Vergeslich for providing the
@@ -43,6 +42,14 @@ namespace Bonfire
                 }
             }
 
+            public static void IsAThing(Object obj)
+            {
+                if (obj)
+                    Plugin.Log(" YES TextMeshProUGUI");
+                else
+                    Plugin.Log(" NO TextMeshProUGUI");
+            }
+
             public static void BuildClipboard()
             {
                 // Clone and rename the top of the clipboard
@@ -61,10 +68,16 @@ namespace Bonfire
                 }
 
                 Transform layoutParent = clipboardClone.transform.Find("Canvas/Settings menu/Settings/ContentCtn/Content (Game)/Scroll View/Viewport/Content/Layout");
+                Plugin.Log("Transforms for LayoutParent");
+                for (int i = 0; i < layoutParent.childCount; i++) {
+                    Plugin.Log($"  {layoutParent.GetChild(i).name}");
+                }
 
                 // Rows to clone and steal features from (yoink)
                 Transform toggleTemplate = layoutParent.Find("ToggleConsoleUGUI (Outline)");
-                Transform rowTemplate2 = layoutParent.Find("TextfieldConsoleUGUI (DiscordKey)");
+                Transform headlineTemplate = layoutParent.Find("HeadlineUGUI (Game)");
+                Transform sliderTemplate = layoutParent.Find("SliderConsoleUGUI (clipboardOffsetPercent)");
+                Transform textTemplate = layoutParent.Find("TextfieldConsoleUGUI (DiscordKey)");
 
                 List<GameObject> originalRows = new();
                 for (int i = 0; i < layoutParent.childCount; i++) 
@@ -72,6 +85,8 @@ namespace Bonfire
                     originalRows.Add(layoutParent.GetChild(i).gameObject);
                 }
 
+                // Instantiate from templates before they're deleted
+                GameObject gunsBrokeHeadline = Object.Instantiate(headlineTemplate.gameObject, layoutParent);
                 GameObject enableGunsBroke = Object.Instantiate(toggleTemplate.gameObject, layoutParent);
 
                 foreach (GameObject row in originalRows)
@@ -91,6 +106,7 @@ namespace Bonfire
                 // ---- TITLE ----
                 // Rename the title to "Bonfire Settings"
                 GameObject titleObj = clipboardClone.transform.Find("Canvas/Settings menu/Settings/Title Settings").gameObject;
+                // Break link to localization manager
                 StaticLocalisedText titleLocalised = titleObj.GetComponent<StaticLocalisedText>();
                 if (titleLocalised)
                 {
@@ -103,6 +119,18 @@ namespace Bonfire
                 Transform scrollView = clipboardClone.transform.Find("Canvas/Settings menu/Settings/ContentCtn/Content (Game)/Scroll View");
                 scrollView.GetComponent<UnityEngine.UI.ScrollRect>().vertical = false;
                 Object.Destroy(scrollView.Find("Scrollbar Vertical").gameObject);
+
+                // ---- CREATE HEADER FOR GUN'S BROKE ----
+
+                gunsBrokeHeadline.SetName("HeadlineUGUI (Gun's Broke)");
+                DumpTransform(gunsBrokeHeadline.transform);
+                GameObject breakGunHeaderObj = gunsBrokeHeadline.transform.Find("TextTf").gameObject;
+                StaticLocalisedText headerTitleLocalised = breakGunHeaderObj.GetComponent<StaticLocalisedText>();
+                if (headerTitleLocalised)
+                {
+                    Object.Destroy(headerTitleLocalised);
+                }
+                breakGunHeaderObj.GetComponent<TextMeshProUGUI>().text = "Gun's Broke";
 
                 // ---- SETUP ALL ROWS (generalize pls) ----
 
