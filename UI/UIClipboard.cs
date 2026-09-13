@@ -19,14 +19,15 @@ namespace Bonfire
     {
         public static class ClipboardUI
         {
-            private static ToggleUGUI _toggleGunsBroke;
+            private static ToggleUGUI _gunsBrokeEnableToggle;
+            private static SliderUGUI _gunsBrokeMaxAngleSlider;
 
             private static GameObject _clipboard;
             private static InputSystemSwitcher _inputSwitcher;
 
             private static void DumpTransform(Transform transform)
             {
-                Plugin.Log($"Dumping {transform.name}");
+                Plugin.Log($"Dumping {transform.gameObject.name}");
 
                 Il2CppArrayBase<Component> cmps = transform.GetComponentsInChildren<Component>();
                 Plugin.Log($"  Components: {cmps.Count}");
@@ -68,10 +69,6 @@ namespace Bonfire
                 }
 
                 Transform layoutParent = clipboardClone.transform.Find("Canvas/Settings menu/Settings/ContentCtn/Content (Game)/Scroll View/Viewport/Content/Layout");
-                Plugin.Log("Transforms for LayoutParent");
-                for (int i = 0; i < layoutParent.childCount; i++) {
-                    Plugin.Log($"  {layoutParent.GetChild(i).name}");
-                }
 
                 // Rows to clone and steal features from (yoink)
                 Transform toggleTemplate = layoutParent.Find("ToggleConsoleUGUI (Outline)");
@@ -87,7 +84,8 @@ namespace Bonfire
 
                 // Instantiate from templates before they're deleted
                 GameObject gunsBrokeHeadline = Object.Instantiate(headlineTemplate.gameObject, layoutParent);
-                GameObject enableGunsBroke = Object.Instantiate(toggleTemplate.gameObject, layoutParent);
+                GameObject gunsBrokeEnable = Object.Instantiate(toggleTemplate.gameObject, layoutParent);
+                GameObject gunsBrokeMaxRangeSlider = Object.Instantiate(sliderTemplate.gameObject, layoutParent);
 
                 foreach (GameObject row in originalRows)
                 {
@@ -123,7 +121,6 @@ namespace Bonfire
                 // ---- CREATE HEADER FOR GUN'S BROKE ----
 
                 gunsBrokeHeadline.SetName("HeadlineUGUI (Gun's Broke)");
-                DumpTransform(gunsBrokeHeadline.transform);
                 GameObject breakGunHeaderObj = gunsBrokeHeadline.transform.Find("TextTf").gameObject;
                 StaticLocalisedText headerTitleLocalised = breakGunHeaderObj.GetComponent<StaticLocalisedText>();
                 if (headerTitleLocalised)
@@ -133,64 +130,72 @@ namespace Bonfire
                 breakGunHeaderObj.GetComponent<TextMeshProUGUI>().text = "Gun's Broke";
 
                 // ---- SETUP ALL ROWS (generalize pls) ----
-
-
-
                 // Enable Gun's Broke Row
-                enableGunsBroke.SetName("ToggleConsoleUGUI (Break Gun)");
+                gunsBrokeEnable.SetName("ToggleConsoleUGUI (BF-GB-Enable)");
 
-                GameObject labelObj = enableGunsBroke.transform.Find("Label").gameObject;
-                StaticLocalisedText labelLocalised = labelObj.GetComponent<StaticLocalisedText>();
-                if (labelLocalised)
+                GameObject enableLabelObj = gunsBrokeEnable.transform.Find("Label").gameObject;
+                StaticLocalisedText enableLabelLocalised = enableLabelObj.GetComponent<StaticLocalisedText>();
+                if (enableLabelLocalised)
                 {
-                    Object.Destroy(labelLocalised);
+                    Object.Destroy(enableLabelLocalised);
                 }
-                labelObj.GetComponent<TextMeshProUGUI>().text = "Enable Broken Gun";
+                enableLabelObj.GetComponent<TextMeshProUGUI>().text = "Enable Broken Gun";
 
-                _toggleGunsBroke = enableGunsBroke.GetComponent<ToggleUGUI>();
-                TextMeshProUGUI textUGUI = _toggleGunsBroke.GetComponent<TextMeshProUGUI>();
-
-                _toggleGunsBroke.Value = BreakGun.Controller.cfg_enabled.Value;
-                ToggleUGUIResolver resolver = _toggleGunsBroke.GetComponent<ToggleUGUIResolver>();
-                if (resolver)
+                _gunsBrokeEnableToggle = gunsBrokeEnable.GetComponent<ToggleUGUI>();
+                // TextMeshProUGUI textUGUI = _gunsBrokeMaxAngleSlider.GetComponent<TextMeshProUGUI>();
+                _gunsBrokeEnableToggle.Value = BreakGun.Controller.cfg_enabled.Value;
+                ToggleUGUIResolver enableResolver = _gunsBrokeEnableToggle.GetComponent<ToggleUGUIResolver>();
+                if (enableResolver)
                 {
-                    Object.Destroy(resolver);
-                    Plugin.Log("Resolver deleted");
+                    Object.Destroy(enableResolver);
+                    Plugin.Log("Toggle resolver deleted");
                 }
                 else
                 {
-                    Plugin.Log("No Resolver");
+                    Plugin.Log("No Toggle Resolver");
                 }
-
-                // bool isInEvent = false; // Prevent _toggleGunsBroke from recursing
-                _toggleGunsBroke.OnValueChangedEvent.AddListener((UnityAction<bool>)(val =>
-                {
-                    if (_toggleGunsBroke.GetComponent<ToggleUGUIResolver>())
-                        Plugin.Log(" YES ToggleUGUIResolver");
-                    else
-                        Plugin.Log(" NO ToggleUGUIResolver");
-                }));
                 // End Enable Gun's Broke Row
 
-                // toggleField.
+                // Begin Max Range Row
+                gunsBrokeMaxRangeSlider.SetName("SliderConsoleUGUI (BF-GB-MaxRange)");
 
-                // int childCount = enableGunsBroke.transform.GetChildCount();
-                // for (int i = 0; i < childCount; i++)
-                // {
-                //     Plugin.Log($"  {enableGunsBroke.transform.GetChild(i).name}");
-                // }
+                GameObject gunsBrokeMaxRangeLabelObj = gunsBrokeMaxRangeSlider.transform.Find("Label").gameObject;
+                StaticLocalisedText gunsBrokeMaxRangeLabelLocalized = gunsBrokeMaxRangeLabelObj.GetComponent<StaticLocalisedText>();
+                if (gunsBrokeMaxRangeLabelLocalized)
+                {
+                    Object.Destroy(gunsBrokeMaxRangeLabelLocalized);
+                }
+                gunsBrokeMaxRangeLabelObj.GetComponent<TextMeshProUGUI>().text = "Max Range";
+
+                _gunsBrokeMaxAngleSlider = gunsBrokeMaxRangeSlider.GetComponent<SliderUGUI>();
+                _gunsBrokeMaxAngleSlider.MaxValue = 60.0f;
+                _gunsBrokeMaxAngleSlider.MinValue = 0.0f;
+                _gunsBrokeMaxAngleSlider.Value = BreakGun.Controller.cfg_maxAngle.Value;
+                _gunsBrokeMaxAngleSlider.ValueFormat = "{0:N0}°";
+
+                ClipboardStateRelay clipboardRelay = _gunsBrokeMaxAngleSlider.GetComponent<ClipboardStateRelay>();
+                if (clipboardRelay)
+                {
+                    Plugin.Log($"Deleting clipboard relay");
+                    Object.Destroy(clipboardRelay);
+                }
+                else
+                {
+                    Plugin.Log($"Could not delete clipboard relay");
+                }
+
+                SliderUGUIResolver gunsBrokeMaxAngleResolver = _gunsBrokeMaxAngleSlider.GetComponent<SliderUGUIResolver>();
+                if (gunsBrokeMaxAngleResolver)
+                {
+                    Object.Destroy(gunsBrokeMaxAngleResolver);
+                    Plugin.Log("Max Angle resolver deleted");
+                }
+                else
+                {
+                    Plugin.Log("No Toggle Resolver");
+                }
+                // End Max Range Row
                 
-
-                // DumpTransform(layoutParent.Find("ToggleConsoleUGUI (Outline)/Toggle"));
-
-                // ------ GENERALIZE THIS ------
-                // UILeaderboardOptOutListener optOut = enableGunsBroke.GetComponent<UILeaderboardOptOutListener>();
-                // if (optOut != null)
-                // {
-                //     Object.Destroy(optOut);
-                // }
-
-
 
 
                 // SetupRow Shenaniganery
@@ -238,10 +243,19 @@ namespace Bonfire
             // Ensure all settings are reset when reset button is pressed
             private static void ResetBonfireSettings()
             {
+                // TODO: Make a data structure that you put application functions/reset functions, 
+                //   tied to the particular setting in question, to be run easily without copying code
+
                 Plugin.Log("Settings Reset");
+
                 BreakGun.Controller.cfg_enabled.Value = BreakGun.Controller.cfg_enabled.DefaultValue;
-                _toggleGunsBroke.Value = BreakGun.Controller.cfg_enabled.Value;
+                _gunsBrokeEnableToggle.Value = BreakGun.Controller.cfg_enabled.Value;
                 Plugin.Log($"  BrkGun Enable: {BreakGun.Controller.cfg_enabled.Value}", true);
+
+                BreakGun.Controller.cfg_maxAngle.Value = BreakGun.Controller.cfg_maxAngle.DefaultValue;
+                _gunsBrokeMaxAngleSlider.Value = BreakGun.Controller.cfg_maxAngle.Value;
+                Plugin.Log($"  BrkGun Max Angle: {BreakGun.Controller.cfg_maxAngle.Value}", true);
+                
                 MelonPreferences.Save();
                 // BreakGun.Controller.cfg_enabled.Value = _toggleGunsBrokeIsOn;
             }
@@ -249,8 +263,15 @@ namespace Bonfire
             // Ensure all settings are applied when apply button is pressed
             private static void ApplyBonfireSettings()
             {
-                BreakGun.Controller.cfg_enabled.Value = _toggleGunsBroke.Value;
+                // TODO: Make a data structure that you put application functions/reset functions, 
+                //   tied to the particular setting in question, to be run easily without copying code
+
+                BreakGun.Controller.cfg_enabled.Value = _gunsBrokeEnableToggle.Value;
                 Plugin.Log($"  BrkGun Enable: {BreakGun.Controller.cfg_enabled.Value}", true);
+                
+                BreakGun.Controller.cfg_maxAngle.Value = _gunsBrokeMaxAngleSlider.Value;
+                Plugin.Log($"  BrkGun Max Angle: {BreakGun.Controller.cfg_maxAngle.Value}", true);
+
                 MelonPreferences.Save();
                 Plugin.Log("Settings Applied");
             }
@@ -268,9 +289,6 @@ namespace Bonfire
 
             public static void Hide()
             {
-                // Reset all clipboard settings to current config values
-                _toggleGunsBroke.Value = BreakGun.Controller.cfg_enabled.Value;
-
                 // Place clipboard down
                 _clipboard.GetComponentInChildren<PickUpZoomTarget>().Release();
                 if (EventSystem.current != null)
@@ -293,6 +311,10 @@ namespace Bonfire
                     Hide();
                     return;
                 }
+                
+                // Reset all clipboard settings to current config values on pickup
+                _gunsBrokeEnableToggle.Value = BreakGun.Controller.cfg_enabled.Value;
+                _gunsBrokeMaxAngleSlider.Value = BreakGun.Controller.cfg_maxAngle.Value;
                 zoomTarget.PickUp();
             }
         }
