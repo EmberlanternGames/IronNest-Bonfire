@@ -10,6 +10,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 using MelonLoader;
+using System;
 
 // MASSIVE MASSIVE thank you to Vergeslich for providing the
 //  techniques used here to modify the clipboard UI
@@ -17,10 +18,116 @@ namespace Bonfire
 {
     namespace ModSettingsMenuUI
     {
+        public static class UILibrary
+        {
+            // Renames the header object to the desired label
+            public static void MakeHeader(GameObject headlineObj, string label)
+            {
+                headlineObj.SetName($"HeadlineUGUI ({label})");
+                
+                // Replace the text in the label with the provided label
+                GameObject headerObj = headlineObj.transform.Find("TextTf").gameObject;
+                StaticLocalisedText headerTitleLocalised = headerObj.GetComponent<StaticLocalisedText>();
+                if (headerTitleLocalised)
+                {
+                    UnityEngine.Object.Destroy(headerTitleLocalised);
+                }
+                headerObj.GetComponent<TextMeshProUGUI>().text = label;
+            }
+
+            // Customizes the provided toggle with a start state and a label
+            public static ToggleUGUI MakeToggle(GameObject toggleObj, bool begin, string label)
+            {
+                toggleObj.SetName($"ToggleUGUI ({label})");
+
+                // Replace the text in the label with the provided label
+                GameObject toggleLabelObj = toggleObj.transform.Find("Label").gameObject;
+                StaticLocalisedText toggleLabelLocalised = toggleLabelObj.GetComponent<StaticLocalisedText>();
+                if (toggleLabelLocalised)
+                {
+                   UnityEngine.Object.Destroy(toggleLabelLocalised);
+                }
+                toggleLabelObj.GetComponent<TextMeshProUGUI>().text = label;
+
+                // Initialize the toggle state and remove leftover external links from Toggle cloning
+                ToggleUGUI outputToggleUGUI = toggleObj.GetComponent<ToggleUGUI>();
+                outputToggleUGUI.Value = begin;
+                ToggleUGUIResolver enableResolver = outputToggleUGUI.GetComponent<ToggleUGUIResolver>();
+                if (enableResolver)
+                {
+                   UnityEngine.Object.Destroy(enableResolver);
+                    Plugin.Log($"Toggle resolver deleted for {label}", true);
+                }
+                else
+                {
+                    Plugin.Log($"No toggle resolver for {label}", true);
+                }
+
+                return outputToggleUGUI;
+            }
+
+            // Customizes the provided slider with start value, label, range, step size, and value format
+            public static SliderUGUI MakeSlider(GameObject sliderObj, float begin, string label, float min, float max, float stepSize, string valueFormat)
+            {
+                sliderObj.SetName($"SliderConsoleUGUI ({label})");
+
+                // Replace the text in the label with the provided label
+                GameObject sliderLabelObj = sliderObj.transform.Find("Label").gameObject;
+                StaticLocalisedText sliderLabelLocalized = sliderLabelObj.GetComponent<StaticLocalisedText>();
+                if (sliderLabelLocalized)
+                {
+                    UnityEngine.Object.Destroy(sliderLabelLocalized);
+                }
+                sliderLabelObj.GetComponent<TextMeshProUGUI>().text = label;
+
+                // Remove the clipboard slider effect from the slider (leftover from cloning)
+                SliderUGUI outputSliderUGUI = sliderObj.GetComponent<SliderUGUI>();
+                ClipboardStateRelay clipboardRelay = outputSliderUGUI.GetComponent<ClipboardStateRelay>();
+                if (clipboardRelay)
+                {
+                    Plugin.Log($"Deleting clipboard relayfrom slider {label}");
+                    UnityEngine.Object.Destroy(clipboardRelay);
+                }
+                else
+                {
+                    Plugin.Log($"Could not delete clipboard relay from slider {label}");
+                }
+
+                // Initialize all slider values
+                outputSliderUGUI.MaxValue = max;
+                outputSliderUGUI.MinValue = min;
+                outputSliderUGUI.StepSize = stepSize;
+                outputSliderUGUI.ValueFormat = valueFormat;
+                outputSliderUGUI.Slider.wholeNumbers = stepSize % 1 == 0;
+                outputSliderUGUI.Value = begin;
+
+                // Remove leftover external links from Slider cloning
+                SliderUGUIResolver gunsBrokeMaxAngleResolver = outputSliderUGUI.GetComponent<SliderUGUIResolver>();
+                if (gunsBrokeMaxAngleResolver)
+                {
+                   UnityEngine.Object.Destroy(gunsBrokeMaxAngleResolver);
+                    Plugin.Log($"Resolver deleted for slider {label}");
+                }
+                else
+                {
+                    Plugin.Log($"No slider resolver for {label}");
+                }
+
+                return outputSliderUGUI;
+            }
+        }
+
         public static class ClipboardUI
         {
-            private static ToggleUGUI _gunsBrokeEnableToggle;
-            private static SliderUGUI _gunsBrokeMaxAngleSlider;
+            private static Dictionary<ToggleUGUI, MelonPreferences_Entry<bool>> _toggles = [];
+            private static Dictionary<SliderUGUI, MelonPreferences_Entry<float>> _sliderFloats = [];
+            private static Dictionary<SliderUGUI, MelonPreferences_Entry<int>> _sliderInts = [];
+            private static Dictionary<TextfieldUGUI, MelonPreferences_Entry<float>> _numberInputs = [];
+
+            private static Button _applyButton;
+            private static Button _closeButton;
+            private static Button _resetButton;
+            
 
             private static GameObject _clipboard;
             private static InputSystemSwitcher _inputSwitcher;
@@ -43,7 +150,7 @@ namespace Bonfire
                 }
             }
 
-            public static void IsAThing(Object obj)
+            public static void IsAThing(UnityEngine.Object obj)
             {
                 if (obj)
                     Plugin.Log(" YES TextMeshProUGUI");
@@ -53,10 +160,15 @@ namespace Bonfire
 
             public static void BuildClipboard()
             {
+                _toggles.Clear();
+                _sliderFloats.Clear();
+                _sliderInts.Clear();
+                _numberInputs.Clear();
+
                 // Clone and rename the top of the clipboard
                 GameObject clipboardParent = GameObject.Find("MainMenu Interactable objects");
                 GameObject clipboardRef =  clipboardParent.transform.Find("Clipboard Menu").gameObject;
-                GameObject clipboardClone = Object.Instantiate(clipboardRef, clipboardParent.transform);
+                GameObject clipboardClone =UnityEngine.Object.Instantiate(clipboardRef, clipboardParent.transform);
                 clipboardClone.name = "Bonfire Settings Menu";
                 
                 clipboardClone.GetComponentInChildren<Interactable>(true).enabled = false;
@@ -83,214 +195,174 @@ namespace Bonfire
                 }
 
                 // Instantiate from templates before they're deleted
-                GameObject gunsBrokeHeadline = Object.Instantiate(headlineTemplate.gameObject, layoutParent);
-                GameObject gunsBrokeEnable = Object.Instantiate(toggleTemplate.gameObject, layoutParent);
-                GameObject gunsBrokeMaxRangeSlider = Object.Instantiate(sliderTemplate.gameObject, layoutParent);
+                GameObject gunsBrokeHeadline = UnityEngine.Object.Instantiate(headlineTemplate.gameObject, layoutParent);
+                GameObject gunsBrokeEnable = UnityEngine.Object.Instantiate(toggleTemplate.gameObject, layoutParent);
+                GameObject gunsBrokeMaxAngleSlider = UnityEngine.Object.Instantiate(sliderTemplate.gameObject, layoutParent);
+                GameObject gunsBrokeMaxChargesSlider = UnityEngine.Object.Instantiate(sliderTemplate.gameObject, layoutParent);
 
+                GameObject caffeineAddictHeadline = UnityEngine.Object.Instantiate(headlineTemplate.gameObject, layoutParent);
+                GameObject caffeineAddictEnable = UnityEngine.Object.Instantiate(toggleTemplate.gameObject, layoutParent);
+                GameObject caffeineAddictMinQualitySlider = UnityEngine.Object.Instantiate(sliderTemplate.gameObject, layoutParent);
+                GameObject caffeineAddictMaxQualitySlider = UnityEngine.Object.Instantiate(sliderTemplate.gameObject, layoutParent);
+                GameObject caffeineAddictMoveNerfMultiplier = UnityEngine.Object.Instantiate(sliderTemplate.gameObject, layoutParent);
+                GameObject caffeineAddictSprintBuffMultiplier = UnityEngine.Object.Instantiate(sliderTemplate.gameObject, layoutParent);
+
+                GameObject engineOutHeadline = UnityEngine.Object.Instantiate(headlineTemplate.gameObject, layoutParent);
+                GameObject engineOutEnable = UnityEngine.Object.Instantiate(toggleTemplate.gameObject, layoutParent);
+                GameObject engineOutShutoffThreshold = UnityEngine.Object.Instantiate(sliderTemplate.gameObject, layoutParent);
+
+                // Remove all original rows to make room for new ones
                 foreach (GameObject row in originalRows)
                 {
-                    Object.Destroy(row);
+                   UnityEngine.Object.Destroy(row);
                 }
 
                 // Remove the base settings UI stuff that I don't need
-                Object.Destroy(clipboardClone.transform.Find("Canvas/Settings menu/Settings/TabsCtn").gameObject);
-                Object.Destroy(clipboardClone.transform.Find("Canvas/Settings menu/Settings/ContentCtn/Content (Graphics)").gameObject);
-                Object.Destroy(clipboardClone.transform.Find("Canvas/Settings menu/Settings/ContentCtn/Content (Audio)").gameObject);
-                Object.Destroy(clipboardClone.transform.Find("Canvas/Settings menu/Settings/ContentCtn/Content (Controls)").gameObject);
-                Object.Destroy(clipboardClone.transform.Find("Canvas/Settings menu/Settings/ContentCtn/Content (Controls)Gamepad").gameObject);
-                // TODO: Hook into the reset button that's leftover to NOT reset the main settings and ONLY the mod settings
-                // TODO: Hook into the apply button to set the setting values
+                UnityEngine.Object.Destroy(clipboardClone.transform.Find("Canvas/Settings menu/Settings/TabsCtn").gameObject);
+                UnityEngine.Object.Destroy(clipboardClone.transform.Find("Canvas/Settings menu/Settings/ContentCtn/Content (Graphics)").gameObject);
+                UnityEngine.Object.Destroy(clipboardClone.transform.Find("Canvas/Settings menu/Settings/ContentCtn/Content (Audio)").gameObject);
+                UnityEngine.Object.Destroy(clipboardClone.transform.Find("Canvas/Settings menu/Settings/ContentCtn/Content (Controls)").gameObject);
+                UnityEngine.Object.Destroy(clipboardClone.transform.Find("Canvas/Settings menu/Settings/ContentCtn/Content (Controls)Gamepad").gameObject);
                 
-                // ---- TITLE ----
                 // Rename the title to "Bonfire Settings"
                 GameObject titleObj = clipboardClone.transform.Find("Canvas/Settings menu/Settings/Title Settings").gameObject;
                 // Break link to localization manager
                 StaticLocalisedText titleLocalised = titleObj.GetComponent<StaticLocalisedText>();
                 if (titleLocalised)
                 {
-                    Object.Destroy(titleLocalised);
+                   UnityEngine.Object.Destroy(titleLocalised);
                 }
                 titleObj.GetComponent<TextMeshProUGUI>().text = "Bonfire Settings";
 
-                // ---- REMOVE SCROLL ----
-                // Remove Scroll (for now)
+                // Remove Scrollbar (for now)
                 Transform scrollView = clipboardClone.transform.Find("Canvas/Settings menu/Settings/ContentCtn/Content (Game)/Scroll View");
                 scrollView.GetComponent<UnityEngine.UI.ScrollRect>().vertical = false;
-                Object.Destroy(scrollView.Find("Scrollbar Vertical").gameObject);
+                UnityEngine.Object.Destroy(scrollView.Find("Scrollbar Vertical").gameObject);
 
-                // ---- CREATE HEADER FOR GUN'S BROKE ----
+                // Setup all feature headers
+                UILibrary.MakeHeader(gunsBrokeHeadline, "Gun's Broke");
+                UILibrary.MakeHeader(caffeineAddictHeadline, "Caffeine Addict");
+                UILibrary.MakeHeader(engineOutHeadline, "Engine Out");
 
-                gunsBrokeHeadline.SetName("HeadlineUGUI (Gun's Broke)");
-                GameObject breakGunHeaderObj = gunsBrokeHeadline.transform.Find("TextTf").gameObject;
-                StaticLocalisedText headerTitleLocalised = breakGunHeaderObj.GetComponent<StaticLocalisedText>();
-                if (headerTitleLocalised)
-                {
-                    Object.Destroy(headerTitleLocalised);
-                }
-                breakGunHeaderObj.GetComponent<TextMeshProUGUI>().text = "Gun's Broke";
+                // Setup all content rows
+                _toggles.Add(UILibrary.MakeToggle(gunsBrokeEnable, BreakGun.Controller.cfg_enabled.Value, "Enable Gun's Broke"), BreakGun.Controller.cfg_enabled);
+                _toggles.Add(UILibrary.MakeToggle(caffeineAddictEnable, CaffeineAddict.Controller.cfg_enabled.Value, "Enable Caffeine Addict"), CaffeineAddict.Controller.cfg_enabled);
+                _toggles.Add(UILibrary.MakeToggle(engineOutEnable, EngineOut.Controller.cfg_enabled.Value, "Enable Engine Out"), EngineOut.Controller.cfg_enabled);
 
-                // ---- SETUP ALL ROWS (generalize pls) ----
-                // Enable Gun's Broke Row
-                gunsBrokeEnable.SetName("ToggleConsoleUGUI (BF-GB-Enable)");
-
-                GameObject enableLabelObj = gunsBrokeEnable.transform.Find("Label").gameObject;
-                StaticLocalisedText enableLabelLocalised = enableLabelObj.GetComponent<StaticLocalisedText>();
-                if (enableLabelLocalised)
-                {
-                    Object.Destroy(enableLabelLocalised);
-                }
-                enableLabelObj.GetComponent<TextMeshProUGUI>().text = "Enable Broken Gun";
-
-                _gunsBrokeEnableToggle = gunsBrokeEnable.GetComponent<ToggleUGUI>();
-                // TextMeshProUGUI textUGUI = _gunsBrokeMaxAngleSlider.GetComponent<TextMeshProUGUI>();
-                _gunsBrokeEnableToggle.Value = BreakGun.Controller.cfg_enabled.Value;
-                ToggleUGUIResolver enableResolver = _gunsBrokeEnableToggle.GetComponent<ToggleUGUIResolver>();
-                if (enableResolver)
-                {
-                    Object.Destroy(enableResolver);
-                    Plugin.Log("Toggle resolver deleted");
-                }
-                else
-                {
-                    Plugin.Log("No Toggle Resolver");
-                }
-                // End Enable Gun's Broke Row
-
-                // Begin Max Range Row
-                gunsBrokeMaxRangeSlider.SetName("SliderConsoleUGUI (BF-GB-MaxRange)");
-
-                GameObject gunsBrokeMaxRangeLabelObj = gunsBrokeMaxRangeSlider.transform.Find("Label").gameObject;
-                StaticLocalisedText gunsBrokeMaxRangeLabelLocalized = gunsBrokeMaxRangeLabelObj.GetComponent<StaticLocalisedText>();
-                if (gunsBrokeMaxRangeLabelLocalized)
-                {
-                    Object.Destroy(gunsBrokeMaxRangeLabelLocalized);
-                }
-                gunsBrokeMaxRangeLabelObj.GetComponent<TextMeshProUGUI>().text = "Max Range";
-
-                _gunsBrokeMaxAngleSlider = gunsBrokeMaxRangeSlider.GetComponent<SliderUGUI>();
-                _gunsBrokeMaxAngleSlider.MaxValue = 60.0f;
-                _gunsBrokeMaxAngleSlider.MinValue = 0.0f;
-                _gunsBrokeMaxAngleSlider.Value = BreakGun.Controller.cfg_maxAngle.Value;
-                _gunsBrokeMaxAngleSlider.ValueFormat = "{0:N0}°";
-
-                ClipboardStateRelay clipboardRelay = _gunsBrokeMaxAngleSlider.GetComponent<ClipboardStateRelay>();
-                if (clipboardRelay)
-                {
-                    Plugin.Log($"Deleting clipboard relay");
-                    Object.Destroy(clipboardRelay);
-                }
-                else
-                {
-                    Plugin.Log($"Could not delete clipboard relay");
-                }
-
-                SliderUGUIResolver gunsBrokeMaxAngleResolver = _gunsBrokeMaxAngleSlider.GetComponent<SliderUGUIResolver>();
-                if (gunsBrokeMaxAngleResolver)
-                {
-                    Object.Destroy(gunsBrokeMaxAngleResolver);
-                    Plugin.Log("Max Angle resolver deleted");
-                }
-                else
-                {
-                    Plugin.Log("No Toggle Resolver");
-                }
-                // End Max Range Row
+                _sliderFloats.Add(UILibrary.MakeSlider(gunsBrokeMaxAngleSlider, BreakGun.Controller.cfg_maxAngle.Value, "Max Angle", 0.0f, 60.0f, 1.0f, "{0:N0}°"), BreakGun.Controller.cfg_maxAngle);
+                _sliderInts.Add(UILibrary.MakeSlider(gunsBrokeMaxChargesSlider, BreakGun.Controller.cfg_maxCharges.Value, "Max Charges", 1, 6, 1, "{0:N0}"), BreakGun.Controller.cfg_maxCharges);
+                _sliderFloats.Add(UILibrary.MakeSlider(caffeineAddictMinQualitySlider, CaffeineAddict.Controller.cfg_minimumCoffeeQuality.Value, "Min Coffee Quality", 0.0f, 100.0f, 1.0f, "{0:N0}%"), CaffeineAddict.Controller.cfg_minimumCoffeeQuality);
+                _sliderFloats.Add(UILibrary.MakeSlider(caffeineAddictMaxQualitySlider, CaffeineAddict.Controller.cfg_greatCoffeeQuality.Value, "Great Coffee Quality", 0.0f, 100.0f, 1.0f, "{0:N0}%"), CaffeineAddict.Controller.cfg_greatCoffeeQuality);
+                _sliderFloats.Add(UILibrary.MakeSlider(caffeineAddictMoveNerfMultiplier, CaffeineAddict.Controller.cfg_walkSpeedNerfMult.Value, "Walk Speed Nerf", 0.0f, 1.0f, 0.01f, "{0:N2}"),  CaffeineAddict.Controller.cfg_walkSpeedNerfMult);
+                _sliderFloats.Add(UILibrary.MakeSlider(caffeineAddictSprintBuffMultiplier, CaffeineAddict.Controller.cfg_sprintSpeedBuffMult.Value, "Sprint Speed Buff", 1.0f, 5.0f, 0.05f, "{0:N2}"),  CaffeineAddict.Controller.cfg_sprintSpeedBuffMult);
+                _sliderInts.Add(UILibrary.MakeSlider(engineOutShutoffThreshold, EngineOut.Controller.cfg_engineShutoffThreshold.Value, "Empty System Shutoff Threshold", 1, 13, 1, "{0:N0}"), EngineOut.Controller.cfg_engineShutoffThreshold);
+                
+                // SliderUGUI outputSliderUGUI = testSlider.GetComponent<SliderUGUI>();
+                // Plugin.Log("TEST-------");
+                // Plugin.Log($"  {outputSliderUGUI.ValueFormat}");
                 
 
-
-                // SetupRow Shenaniganery
-                // Other Stuff too. 
                 // Repurpose the settings "Reset" button to apply Bonfire settings.
                 GameObject resetButtonObj = clipboardClone.transform.Find("Canvas/Settings menu/Settings/ContentCtn/ButtonSecondaryUGUI (reset all)").gameObject;
-                Button resetButton = resetButtonObj.GetComponent<Button>();
-                Plugin.Log($"Reset event count: {resetButton.onClick.GetPersistentEventCount()}");
-                for (int i = 0; i < resetButton.onClick.GetPersistentEventCount(); i++)
+                _resetButton = resetButtonObj.GetComponent<Button>();
+                Plugin.Log($"Reset event count: {_resetButton.onClick.GetPersistentEventCount()}");
+                for (int i = 0; i < _resetButton.onClick.GetPersistentEventCount(); i++)
                 {
-                    resetButton.onClick.SetPersistentListenerState(i, UnityEventCallState.Off);
+                    _resetButton.onClick.SetPersistentListenerState(i, UnityEventCallState.Off);
                 }
-                resetButton.onClick.AddListener((UnityAction)ResetBonfireSettings);
+                _resetButton.onClick.AddListener((UnityAction)ResetBonfireSettings);
 
                 // Repurpose the settings "Apply" button to apply Bonfire settings.
                 GameObject applyButtonObj = clipboardClone.transform.Find("Canvas/Settings menu/Settings/ContentCtn/SGButtonPrimaryUGUI (apply)").gameObject;
-                Button applyButton = applyButtonObj.GetComponent<Button>();
-                Plugin.Log($"Apply event count: {applyButton.onClick.GetPersistentEventCount()}");
-                for (int i = 0; i < applyButton.onClick.GetPersistentEventCount(); i++)
+                _applyButton = applyButtonObj.GetComponent<Button>();
+                Plugin.Log($"Apply event count: {_applyButton.onClick.GetPersistentEventCount()}");
+                for (int i = 0; i < _applyButton.onClick.GetPersistentEventCount(); i++)
                 {
-                    applyButton.onClick.SetPersistentListenerState(i, UnityEventCallState.Off);
+                    _applyButton.onClick.SetPersistentListenerState(i, UnityEventCallState.Off);
                 }
-                applyButton.onClick.AddListener((UnityAction)ApplyBonfireSettings);
+                _applyButton.onClick.AddListener((UnityAction)ApplyBonfireSettings);
                 
                 // Make sure "Close" works properly
                 GameObject closeButtonObj = clipboardClone.transform.Find("Canvas/Settings menu/Settings/ContentCtn/ButtonSecondaryUGUI (close)").gameObject;
-                Button closeButton = closeButtonObj.GetComponent<Button>();
-                Plugin.Log($"Close event count: {closeButton.onClick.GetPersistentEventCount()}");
-                for (int i = 0; i < closeButton.onClick.GetPersistentEventCount(); i++)
+                _closeButton = closeButtonObj.GetComponent<Button>();
+                Plugin.Log($"Close event count: {_closeButton.onClick.GetPersistentEventCount()}");
+                for (int i = 0; i < _closeButton.onClick.GetPersistentEventCount(); i++)
                 {
-                    closeButton.onClick.SetPersistentListenerState(i, UnityEventCallState.Off);
+                    _closeButton.onClick.SetPersistentListenerState(i, UnityEventCallState.Off);
                 }
-                closeButton.onClick.AddListener((UnityAction)Hide);
 
                 _clipboard = clipboardClone;
 
                 // Necessary for text input
-                _inputSwitcher = Object.FindObjectOfType<InputSystemSwitcher>();
+                _inputSwitcher = UnityEngine.Object.FindObjectOfType<InputSystemSwitcher>();
                 if (_inputSwitcher == null)
                 {
                     Plugin.Log("ERROR: InputSystemSwitcher not found - Bonfire Settings Menu Text Input will not work.");
-                }                
+                }
+
+                
+                PickUpZoomTarget zoomTarget = _clipboard.GetComponentInChildren<PickUpZoomTarget>();
+                _closeButton.onClick.AddListener((UnityAction)zoomTarget.Release);
+                zoomTarget.onReleased.AddListener((UnityAction)Hide);
             }
 
             // Ensure all settings are reset when reset button is pressed
             private static void ResetBonfireSettings()
             {
-                // TODO: Make a data structure that you put application functions/reset functions, 
-                //   tied to the particular setting in question, to be run easily without copying code
-
-                Plugin.Log("Settings Reset");
-
-                BreakGun.Controller.cfg_enabled.Value = BreakGun.Controller.cfg_enabled.DefaultValue;
-                _gunsBrokeEnableToggle.Value = BreakGun.Controller.cfg_enabled.Value;
-                Plugin.Log($"  BrkGun Enable: {BreakGun.Controller.cfg_enabled.Value}", true);
-
-                BreakGun.Controller.cfg_maxAngle.Value = BreakGun.Controller.cfg_maxAngle.DefaultValue;
-                _gunsBrokeMaxAngleSlider.Value = BreakGun.Controller.cfg_maxAngle.Value;
-                Plugin.Log($"  BrkGun Max Angle: {BreakGun.Controller.cfg_maxAngle.Value}", true);
+                Plugin.Log("Resetting Settings");
+                Plugin.Log("Toggles", true);
+                foreach((ToggleUGUI toggle, MelonPreferences_Entry<bool> entry) in _toggles)
+                {
+                    toggle.Value = entry.DefaultValue;
+                    Plugin.Log($"  {toggle.name}: {toggle.Value}", true);
+                }
                 
-                MelonPreferences.Save();
-                // BreakGun.Controller.cfg_enabled.Value = _toggleGunsBrokeIsOn;
+                Plugin.Log("Float Sliders", true);
+                foreach ((SliderUGUI slider, MelonPreferences_Entry<float> entry) in _sliderFloats)
+                {
+                    slider.Value = entry.DefaultValue;
+                    Plugin.Log($"  {slider.name}: {slider.Value}", true);
+                }
+                
+                Plugin.Log("Int Sliders", true);
+                foreach ((SliderUGUI slider, MelonPreferences_Entry<int> entry) in _sliderInts)
+                {
+                    slider.Value = entry.DefaultValue;
+                    Plugin.Log($"  {slider.name}: {slider.Value}", true);
+                }
             }
 
             // Ensure all settings are applied when apply button is pressed
             private static void ApplyBonfireSettings()
             {
-                // TODO: Make a data structure that you put application functions/reset functions, 
-                //   tied to the particular setting in question, to be run easily without copying code
-
-                BreakGun.Controller.cfg_enabled.Value = _gunsBrokeEnableToggle.Value;
-                Plugin.Log($"  BrkGun Enable: {BreakGun.Controller.cfg_enabled.Value}", true);
+                Plugin.Log("Applying Settings");
+                Plugin.Log("Toggles", true);
+                foreach((ToggleUGUI toggle, MelonPreferences_Entry<bool> entry) in _toggles)
+                {
+                    entry.Value = toggle.Value;
+                    Plugin.Log($"  {toggle.name}: {toggle.Value}", true);
+                }
                 
-                BreakGun.Controller.cfg_maxAngle.Value = _gunsBrokeMaxAngleSlider.Value;
-                Plugin.Log($"  BrkGun Max Angle: {BreakGun.Controller.cfg_maxAngle.Value}", true);
+                Plugin.Log("Slider Floats", true);
+                foreach((SliderUGUI slider, MelonPreferences_Entry<float> entry) in _sliderFloats)
+                {
+                    entry.Value = slider.Value;
+                    Plugin.Log($"  {slider.name}: {slider.Value}", true);
+                }
+                
+                Plugin.Log("Slider Ints", true);
+                foreach((SliderUGUI slider, MelonPreferences_Entry<int> entry) in _sliderInts)
+                {
+                    entry.Value = (int)Math.Round(slider.Value);
+                    Plugin.Log($"  {slider.name}: {slider.Value}", true);
+                }
 
                 MelonPreferences.Save();
-                Plugin.Log("Settings Applied");
-            }
-
-            // Lol no idea
-            private static TMP_InputField SetupRow(GameObject row, string label, string placeholder, string initialValue, TMP_InputField.ContentType contentType, System.Action<string> onEndEdit)
-            {
-                Transform inputTransform = row.transform.Find("InputField (TMP)");
-                TMP_InputField input = inputTransform.GetComponent<TMP_InputField>();
-
-
-
-                return input;
             }
 
             public static void Hide()
             {
                 // Place clipboard down
-                _clipboard.GetComponentInChildren<PickUpZoomTarget>().Release();
                 if (EventSystem.current != null)
                 {
                     EventSystem.current.SetSelectedGameObject(null);
@@ -306,15 +378,26 @@ namespace Bonfire
             public static void ToggleClipboard()
             {
                 PickUpZoomTarget zoomTarget = _clipboard.GetComponentInChildren<PickUpZoomTarget>();
+                
                 if (zoomTarget.isHeld)
                 {
-                    Hide();
+                    zoomTarget.Release();
                     return;
                 }
                 
                 // Reset all clipboard settings to current config values on pickup
-                _gunsBrokeEnableToggle.Value = BreakGun.Controller.cfg_enabled.Value;
-                _gunsBrokeMaxAngleSlider.Value = BreakGun.Controller.cfg_maxAngle.Value;
+                foreach((ToggleUGUI toggle, MelonPreferences_Entry<bool> entry) in _toggles)
+                {
+                    toggle.Value = entry.Value;
+                }
+                foreach((SliderUGUI slider, MelonPreferences_Entry<float> entry) in _sliderFloats)
+                {
+                    slider.Value = entry.Value;
+                }
+                foreach((SliderUGUI slider, MelonPreferences_Entry<int> entry) in _sliderInts)  
+                {
+                    slider.Value = entry.Value;
+                }
                 zoomTarget.PickUp();
             }
         }

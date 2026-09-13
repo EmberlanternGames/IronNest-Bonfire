@@ -21,9 +21,6 @@ namespace Bonfire
             //   This technique provided by user `vergeslich`
             public static void initUIManagerOnFirstSceneLoad(string sceneName)
             {
-                if (!Plugin.firstLoad)
-                Plugin.Log("Subscribing to main menu hooks.");
-
                 Action<string> loadHandler = sceneName =>
                 {
                     HandleMainMenuLoaded(sceneName);
@@ -94,9 +91,12 @@ namespace Bonfire
                         UnityEngine.Object.Destroy(localisedText);
                     }
                 }
+
+                
+
+                ClipboardUI.BuildClipboard();
                 
                 _bonfireButtonRef = bonfireTextObject;
-                ClipboardUI.BuildClipboard();
             }
 
             private static void HandleMainMenuUnloaded(string sceneName)
