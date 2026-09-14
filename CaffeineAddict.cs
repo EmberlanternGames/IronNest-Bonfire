@@ -90,15 +90,15 @@ namespace Bonfire
                 );
                 cfg_walkSpeedNerfMult = _configCategory.CreateEntry(
                     "walkSpeedNerfMult",
-                    0.6f,
+                    1.0f,
                     "Nerfed Speed Multiplier",
-                    "The scalar that is applied to your speed at which you walk before the caffeine kicks in.\n  Possible Values: > 0.0 (ideally < 1.0) | Default: 0.6"
+                    "The scalar that is applied to your speed at which you walk before the caffeine kicks in.\n  Possible Values: > 0.0 (ideally < 1.0) | Default: 1.0"
                 );
                 cfg_sprintNerfEnabled = _configCategory.CreateEntry(
                     "sprintNerfEnabled",
-                    true,
+                    false,
                     "No Sprint on No Caffeine",
-                    "When this is true, the sprint nerf will apply to your player when the feature is on.\n  When false, it does not apply when the feature is on. \n  Possible Values: true/false | Default: true"
+                    "When this is true, the sprint nerf will apply to your player when the feature is on.\n  When false, it does not apply when the feature is on. \n  Possible Values: true/false | Default: false"
                 );
             }
 

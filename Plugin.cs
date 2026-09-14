@@ -2,6 +2,7 @@
 using Il2Cpp;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
 using UnityEngine;
+using Bonfire.ModSettingsMenuUI;
 
 [assembly: MelonInfo(typeof(Bonfire.Plugin), Bonfire.MyPluginInfo.PLUGIN_NAME, Bonfire.MyPluginInfo.PLUGIN_VERSION, Bonfire.MyPluginInfo.PLUGIN_DEV)]
 [assembly: MelonGame("Iron Nest", "Iron Nest Heavy Turret Simulator")]
@@ -13,12 +14,14 @@ namespace Bonfire
     public static class MyPluginInfo {
         // public const string PLUGIN_GUID = "dev.emberlantern.recordshuffler";
         public const string PLUGIN_NAME = "Bonfire";
-        public const string PLUGIN_VERSION = "0.0.1";
+        public const string PLUGIN_VERSION = "1.0.0";
         public const string PLUGIN_DEV = "emberlantern";
     }
     
     public class Plugin : MelonMod
     {
+        internal static bool firstLoad = true;
+
         internal static FirstPersonController playerController;
         internal static GenericTimerSceneSync timer;
         internal static bool missionLoaded = false;
@@ -86,6 +89,12 @@ namespace Bonfire
 
         public override void OnSceneWasInitialized(int buildIndex, string sceneName)
         {
+            if (firstLoad)
+            {
+                ModSettingsMenuUI.UIManager.initUIManagerOnFirstSceneLoad(sceneName);
+            }
+            firstLoad = false;
+
             bool loading = MissionManager.Instance != null && MissionManager.Instance.CurrentMission != null;
             if (loading) 
             {

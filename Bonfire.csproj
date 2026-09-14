@@ -3,8 +3,8 @@
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
     <AssemblyName>Bonfire</AssemblyName>
-    <Product>A mod that adds various difficulty settings to enable.</Product>
-    <Version>0.0.1</Version>
+    <Product>A mod that adds various difficulty/gameplay settings to enable.</Product>
+    <Version>1.0.0</Version>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>latest</LangVersion>
     <RestoreAdditionalProjectSources>
