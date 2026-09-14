@@ -111,11 +111,11 @@ namespace Bonfire
                 if (gunsBrokeMaxAngleResolver)
                 {
                    UnityEngine.Object.Destroy(gunsBrokeMaxAngleResolver);
-                    Plugin.Log($"Resolver deleted for slider {label}");
+                    Plugin.Log($"Resolver deleted for slider {label}", true);
                 }
                 else
                 {
-                    Plugin.Log($"No slider resolver for {label}");
+                    Plugin.Log($"No slider resolver for {label}", true);
                 }
 
                 return outputSliderUGUI;

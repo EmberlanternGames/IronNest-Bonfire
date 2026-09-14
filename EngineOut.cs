@@ -192,13 +192,14 @@ namespace Bonfire
                 // If I can't figure out the exact names of the levers (they're just named "Lever" in the name values) 
                 //  then I'll use the EntityId (look at the numbers if this fails in the future, this is IMPERATIVE with every patch)
                 if (Controller.cfg_disableLeverMalfunctions.Value 
-                        && (__instance.GetEntityId().ToString().CompareTo("156632") == 0
-                        || __instance.GetEntityId().ToString().CompareTo("149002") == 0))
+                        && (__instance.GetEntityId().ToString().CompareTo("156760") == 0
+                        || __instance.GetEntityId().ToString().CompareTo("149128") == 0))
                 {
-                    Plugin.Log("Supressed Malfunction", true);
+                    Plugin.Log($"Supressed Malfunctions for lever {__instance.GetEntityId()}", true);
                     return false;
                 }
 
+                Plugin.Log($"Malfunctions for lever {__instance.GetEntityId()} not suppressed", true);
                 // Yeah I can do this in 1 line. This is more readable
                 return true;
             }
