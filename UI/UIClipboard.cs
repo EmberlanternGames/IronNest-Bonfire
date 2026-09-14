@@ -12,6 +12,11 @@ using UnityEngine.UI;
 using MelonLoader;
 using System;
 
+// Portions of the UI construction below are adapted from vergeslich03's APNest-Client
+//  (client/ConnectUI.cs, client/MainMenuAPHook.cs), used under the MIT License.
+//  https://github.com/vergeslich03/APNest-Client
+//  Full license text: THIRD-PARTY-NOTICES.md
+
 // MASSIVE MASSIVE thank you to Vergeslich for providing the
 //  techniques used here to modify the clipboard UI
 namespace Bonfire
@@ -85,12 +90,12 @@ namespace Bonfire
                 ClipboardStateRelay clipboardRelay = outputSliderUGUI.GetComponent<ClipboardStateRelay>();
                 if (clipboardRelay)
                 {
-                    Plugin.Log($"Deleting clipboard relayfrom slider {label}");
+                    Plugin.Log($"Deleting clipboard relay from slider {label}", true);
                     UnityEngine.Object.Destroy(clipboardRelay);
                 }
                 else
                 {
-                    Plugin.Log($"Could not delete clipboard relay from slider {label}");
+                    Plugin.Log($"Could not delete clipboard relay from slider {label}", true);
                 }
 
                 // Initialize all slider values
@@ -115,6 +120,84 @@ namespace Bonfire
 
                 return outputSliderUGUI;
             }
+
+            public static TMP_InputField MakeTextInput(GameObject textObj, string begin, string label, string defaultVal, TMP_InputField.ContentType type, InputSystemSwitcher switcher, System.Action<string, TMP_InputField> limiter)
+            {
+                
+                // Text technique provided by vergeslich, extrapolated to other widgets
+                UILeaderboardOptOutListener optOut = textObj.GetComponent<UILeaderboardOptOutListener>();
+                if (optOut != null)
+                {
+                    UnityEngine.Object.Destroy(optOut);
+                }
+
+                GameObject labelObj = textObj.transform.Find("Label").gameObject;
+                StaticLocalisedText labelLocalised = labelObj.GetComponent<StaticLocalisedText>();
+                if (labelLocalised != null)
+                {
+                    UnityEngine.Object.Destroy(labelLocalised);
+                }
+                labelObj.GetComponent<TextMeshProUGUI>().text = label;
+
+                Transform inputFieldTransform = textObj.transform.Find("InputField (TMP)");
+                TMP_InputField inputField = inputFieldTransform.GetComponent<TMP_InputField>();
+
+                InputFieldHelper inputFieldHelper = inputFieldTransform.GetComponent<InputFieldHelper>();
+                if (inputFieldHelper != null)
+                {
+                    UnityEngine.Object.Destroy(inputFieldHelper);
+                }
+
+                inputField.contentType = type;
+                inputField.text = begin;
+                inputField.interactable = true;
+                inputField.readOnly = false;
+
+                CanvasGroup canvasGroup = inputFieldTransform.GetComponent<CanvasGroup>();
+                if (canvasGroup != null)
+                {
+                    canvasGroup.interactable = true;
+                    canvasGroup.blocksRaycasts = true;
+                }
+
+                inputFieldTransform.Find("Text Area/Placeholder").GetComponent<TextMeshProUGUI>().text = defaultVal;
+
+
+                System.Action<string> action = input =>
+                {
+                    limiter(input, inputField);
+                };
+                inputField.onEndEdit.AddListener(action);
+
+                System.Action<string> onSelect = value =>
+                {
+                    if (switcher != null)
+                    {
+                        switcher.EnableTextInput();
+                    }
+                    else
+                    {
+                        Plugin.Log("ERROR: Could not find switcher!");
+                    }
+                };
+                System.Action<string> onDeselect = value =>
+                {
+                    if (switcher != null)
+                    {
+                        switcher.DisableInputForPopup();
+                        switcher.DelayedInputEnable();
+                    }
+                    else
+                    {
+                        Plugin.Log("ERROR: Could not find switcher!");
+                    }
+                };
+                
+                inputField.onSelect.AddListener(onSelect);
+                inputField.onDeselect.AddListener(onDeselect);
+
+                return inputField;
+            }
         }
 
         public static class ClipboardUI
@@ -122,7 +205,7 @@ namespace Bonfire
             private static Dictionary<ToggleUGUI, MelonPreferences_Entry<bool>> _toggles = [];
             private static Dictionary<SliderUGUI, MelonPreferences_Entry<float>> _sliderFloats = [];
             private static Dictionary<SliderUGUI, MelonPreferences_Entry<int>> _sliderInts = [];
-            private static Dictionary<TextfieldUGUI, MelonPreferences_Entry<float>> _numberInputs = [];
+            private static Dictionary<TMP_InputField, MelonPreferences_Entry<float>> _numberInputs = [];
 
             private static Button _applyButton;
             private static Button _closeButton;
@@ -165,10 +248,27 @@ namespace Bonfire
                 _sliderInts.Clear();
                 _numberInputs.Clear();
 
+                // Necessary for text input
+                _inputSwitcher = UnityEngine.Object.FindObjectOfType<InputSystemSwitcher>();
+                if (_inputSwitcher == null)
+                {
+                    InputSystemSwitcher[] allSwitchers = Resources.FindObjectsOfTypeAll<InputSystemSwitcher>();
+                    if (allSwitchers.Length > 0)
+                    {
+                        _inputSwitcher = allSwitchers[0];
+                        Plugin.Log($"Switcher: {_inputSwitcher.name}", true);
+                    }
+                }
+
+                if (_inputSwitcher == null)
+                {
+                    Plugin.Log("ERROR: InputSystemSwitcher not found — Bonfire settings text input non-functional.");
+                }
+
                 // Clone and rename the top of the clipboard
                 GameObject clipboardParent = GameObject.Find("MainMenu Interactable objects");
                 GameObject clipboardRef =  clipboardParent.transform.Find("Clipboard Menu").gameObject;
-                GameObject clipboardClone =UnityEngine.Object.Instantiate(clipboardRef, clipboardParent.transform);
+                GameObject clipboardClone = UnityEngine.Object.Instantiate(clipboardRef, clipboardParent.transform);
                 clipboardClone.name = "Bonfire Settings Menu";
                 
                 clipboardClone.GetComponentInChildren<Interactable>(true).enabled = false;
@@ -206,9 +306,14 @@ namespace Bonfire
                 GameObject caffeineAddictMaxQualitySlider = UnityEngine.Object.Instantiate(sliderTemplate.gameObject, layoutParent);
                 GameObject caffeineAddictMoveNerfMultiplier = UnityEngine.Object.Instantiate(sliderTemplate.gameObject, layoutParent);
                 GameObject caffeineAddictSprintBuffMultiplier = UnityEngine.Object.Instantiate(sliderTemplate.gameObject, layoutParent);
+                GameObject caffeineAddictBrewCooldown = UnityEngine.Object.Instantiate(textTemplate.gameObject, layoutParent);
+                GameObject caffeineAddictSprintNerfEnable = UnityEngine.Object.Instantiate(toggleTemplate.gameObject, layoutParent);
 
                 GameObject engineOutHeadline = UnityEngine.Object.Instantiate(headlineTemplate.gameObject, layoutParent);
                 GameObject engineOutEnable = UnityEngine.Object.Instantiate(toggleTemplate.gameObject, layoutParent);
+                GameObject engineOutPressureIncRate = UnityEngine.Object.Instantiate(textTemplate.gameObject, layoutParent);
+                GameObject engineOutPressureDecRate = UnityEngine.Object.Instantiate(textTemplate.gameObject, layoutParent);
+                GameObject engineOutPressureTrickleRate = UnityEngine.Object.Instantiate(textTemplate.gameObject, layoutParent);
                 GameObject engineOutShutoffThreshold = UnityEngine.Object.Instantiate(sliderTemplate.gameObject, layoutParent);
 
                 // Remove all original rows to make room for new ones
@@ -234,11 +339,6 @@ namespace Bonfire
                 }
                 titleObj.GetComponent<TextMeshProUGUI>().text = "Bonfire Settings";
 
-                // Remove Scrollbar (for now)
-                Transform scrollView = clipboardClone.transform.Find("Canvas/Settings menu/Settings/ContentCtn/Content (Game)/Scroll View");
-                scrollView.GetComponent<UnityEngine.UI.ScrollRect>().vertical = false;
-                UnityEngine.Object.Destroy(scrollView.Find("Scrollbar Vertical").gameObject);
-
                 // Setup all feature headers
                 UILibrary.MakeHeader(gunsBrokeHeadline, "Gun's Broke");
                 UILibrary.MakeHeader(caffeineAddictHeadline, "Caffeine Addict");
@@ -247,25 +347,45 @@ namespace Bonfire
                 // Setup all content rows
                 _toggles.Add(UILibrary.MakeToggle(gunsBrokeEnable, BreakGun.Controller.cfg_enabled.Value, "Enable Gun's Broke"), BreakGun.Controller.cfg_enabled);
                 _toggles.Add(UILibrary.MakeToggle(caffeineAddictEnable, CaffeineAddict.Controller.cfg_enabled.Value, "Enable Caffeine Addict"), CaffeineAddict.Controller.cfg_enabled);
+                _toggles.Add(UILibrary.MakeToggle(caffeineAddictSprintNerfEnable, CaffeineAddict.Controller.cfg_sprintNerfEnabled.Value, "Enable Sprint Nerf"), CaffeineAddict.Controller.cfg_sprintNerfEnabled);
                 _toggles.Add(UILibrary.MakeToggle(engineOutEnable, EngineOut.Controller.cfg_enabled.Value, "Enable Engine Out"), EngineOut.Controller.cfg_enabled);
 
                 _sliderFloats.Add(UILibrary.MakeSlider(gunsBrokeMaxAngleSlider, BreakGun.Controller.cfg_maxAngle.Value, "Max Angle", 0.0f, 60.0f, 1.0f, "{0:N0}°"), BreakGun.Controller.cfg_maxAngle);
                 _sliderInts.Add(UILibrary.MakeSlider(gunsBrokeMaxChargesSlider, BreakGun.Controller.cfg_maxCharges.Value, "Max Charges", 1, 6, 1, "{0:N0}"), BreakGun.Controller.cfg_maxCharges);
                 _sliderFloats.Add(UILibrary.MakeSlider(caffeineAddictMinQualitySlider, CaffeineAddict.Controller.cfg_minimumCoffeeQuality.Value, "Min Coffee Quality", 0.0f, 100.0f, 1.0f, "{0:N0}%"), CaffeineAddict.Controller.cfg_minimumCoffeeQuality);
                 _sliderFloats.Add(UILibrary.MakeSlider(caffeineAddictMaxQualitySlider, CaffeineAddict.Controller.cfg_greatCoffeeQuality.Value, "Great Coffee Quality", 0.0f, 100.0f, 1.0f, "{0:N0}%"), CaffeineAddict.Controller.cfg_greatCoffeeQuality);
-                _sliderFloats.Add(UILibrary.MakeSlider(caffeineAddictMoveNerfMultiplier, CaffeineAddict.Controller.cfg_walkSpeedNerfMult.Value, "Walk Speed Nerf", 0.0f, 1.0f, 0.01f, "{0:N2}"),  CaffeineAddict.Controller.cfg_walkSpeedNerfMult);
+                _sliderFloats.Add(UILibrary.MakeSlider(caffeineAddictMoveNerfMultiplier, CaffeineAddict.Controller.cfg_walkSpeedNerfMult.Value, "Walk Speed Nerf", 0.0f, 1.0f, 0.01f, "{0:N2}"), CaffeineAddict.Controller.cfg_walkSpeedNerfMult);
                 _sliderFloats.Add(UILibrary.MakeSlider(caffeineAddictSprintBuffMultiplier, CaffeineAddict.Controller.cfg_sprintSpeedBuffMult.Value, "Sprint Speed Buff", 1.0f, 5.0f, 0.05f, "{0:N2}"),  CaffeineAddict.Controller.cfg_sprintSpeedBuffMult);
                 _sliderInts.Add(UILibrary.MakeSlider(engineOutShutoffThreshold, EngineOut.Controller.cfg_engineShutoffThreshold.Value, "Empty System Shutoff Threshold", 1, 13, 1, "{0:N0}"), EngineOut.Controller.cfg_engineShutoffThreshold);
-                
-                // SliderUGUI outputSliderUGUI = testSlider.GetComponent<SliderUGUI>();
-                // Plugin.Log("TEST-------");
-                // Plugin.Log($"  {outputSliderUGUI.ValueFormat}");
-                
+        
+                // This action checks if an item entered in the field is greater than or equal to 0, otherwise it bumps to 0
+                Action<string, TMP_InputField> grtrEqualZeroTemplate = (value, inputField) =>
+                {
+                    if (float.TryParse(value, out float result))
+                    {
+                        // Only ever check if greater than or equal to 0 for now, may need to change in the future to customize check
+                        if (result < 0)
+                        inputField.text = CaffeineAddict.Controller.cfg_timeBetweenBrews.DefaultValue.ToString();
+                    }
+                    else
+                    {
+                        Plugin.Log($"ERROR: Could not assign `{value}` to text input");
+                        inputField.text = inputField.transform.Find("Text Area/Placeholder").GetComponent<TextMeshProUGUI>().text;
+                    }
+                };
+                _numberInputs.Add(UILibrary.MakeTextInput(caffeineAddictBrewCooldown, CaffeineAddict.Controller.cfg_timeBetweenBrews.Value.ToString(), "Brew Recharge (sec)", 
+                    CaffeineAddict.Controller.cfg_timeBetweenBrews.DefaultValue.ToString(), TMP_InputField.ContentType.DecimalNumber, _inputSwitcher, grtrEqualZeroTemplate), CaffeineAddict.Controller.cfg_timeBetweenBrews);
+                _numberInputs.Add(UILibrary.MakeTextInput(engineOutPressureIncRate, EngineOut.Controller.cfg_pressureIncRate.Value.ToString(), "Pressure Gain (%/sec)", 
+                    EngineOut.Controller.cfg_pressureIncRate.DefaultValue.ToString(), TMP_InputField.ContentType.DecimalNumber, _inputSwitcher, grtrEqualZeroTemplate), EngineOut.Controller.cfg_pressureIncRate);
+                _numberInputs.Add(UILibrary.MakeTextInput(engineOutPressureDecRate, EngineOut.Controller.cfg_pressureDecRatePerValve.Value.ToString(), "Pressure Drain (%/sec/valve)", 
+                    EngineOut.Controller.cfg_pressureDecRatePerValve.DefaultValue.ToString(), TMP_InputField.ContentType.DecimalNumber, _inputSwitcher, grtrEqualZeroTemplate), EngineOut.Controller.cfg_pressureDecRatePerValve);
+                _numberInputs.Add(UILibrary.MakeTextInput(engineOutPressureTrickleRate, EngineOut.Controller.cfg_engineTrickleRate.Value.ToString(), "Pwr Off Trickle (%/sec)", 
+                    EngineOut.Controller.cfg_engineTrickleRate.DefaultValue.ToString(), TMP_InputField.ContentType.DecimalNumber, _inputSwitcher, grtrEqualZeroTemplate), EngineOut.Controller.cfg_engineTrickleRate);
 
+                // Idrc about templatizing the buttons lol
                 // Repurpose the settings "Reset" button to apply Bonfire settings.
                 GameObject resetButtonObj = clipboardClone.transform.Find("Canvas/Settings menu/Settings/ContentCtn/ButtonSecondaryUGUI (reset all)").gameObject;
                 _resetButton = resetButtonObj.GetComponent<Button>();
-                Plugin.Log($"Reset event count: {_resetButton.onClick.GetPersistentEventCount()}");
                 for (int i = 0; i < _resetButton.onClick.GetPersistentEventCount(); i++)
                 {
                     _resetButton.onClick.SetPersistentListenerState(i, UnityEventCallState.Off);
@@ -275,7 +395,6 @@ namespace Bonfire
                 // Repurpose the settings "Apply" button to apply Bonfire settings.
                 GameObject applyButtonObj = clipboardClone.transform.Find("Canvas/Settings menu/Settings/ContentCtn/SGButtonPrimaryUGUI (apply)").gameObject;
                 _applyButton = applyButtonObj.GetComponent<Button>();
-                Plugin.Log($"Apply event count: {_applyButton.onClick.GetPersistentEventCount()}");
                 for (int i = 0; i < _applyButton.onClick.GetPersistentEventCount(); i++)
                 {
                     _applyButton.onClick.SetPersistentListenerState(i, UnityEventCallState.Off);
@@ -285,21 +404,12 @@ namespace Bonfire
                 // Make sure "Close" works properly
                 GameObject closeButtonObj = clipboardClone.transform.Find("Canvas/Settings menu/Settings/ContentCtn/ButtonSecondaryUGUI (close)").gameObject;
                 _closeButton = closeButtonObj.GetComponent<Button>();
-                Plugin.Log($"Close event count: {_closeButton.onClick.GetPersistentEventCount()}");
                 for (int i = 0; i < _closeButton.onClick.GetPersistentEventCount(); i++)
                 {
                     _closeButton.onClick.SetPersistentListenerState(i, UnityEventCallState.Off);
                 }
 
                 _clipboard = clipboardClone;
-
-                // Necessary for text input
-                _inputSwitcher = UnityEngine.Object.FindObjectOfType<InputSystemSwitcher>();
-                if (_inputSwitcher == null)
-                {
-                    Plugin.Log("ERROR: InputSystemSwitcher not found - Bonfire Settings Menu Text Input will not work.");
-                }
-
                 
                 PickUpZoomTarget zoomTarget = _clipboard.GetComponentInChildren<PickUpZoomTarget>();
                 _closeButton.onClick.AddListener((UnityAction)zoomTarget.Release);
@@ -330,6 +440,13 @@ namespace Bonfire
                     slider.Value = entry.DefaultValue;
                     Plugin.Log($"  {slider.name}: {slider.Value}", true);
                 }
+
+                Plugin.Log("Input Boxes", true);
+                foreach((TMP_InputField inputField, MelonPreferences_Entry<float> entry) in _numberInputs)
+                {
+                    inputField.SetText(entry.DefaultValue.ToString());
+                    Plugin.Log($"  {inputField.name}: {inputField.text}", true);
+                }
             }
 
             // Ensure all settings are applied when apply button is pressed
@@ -355,6 +472,20 @@ namespace Bonfire
                 {
                     entry.Value = (int)Math.Round(slider.Value);
                     Plugin.Log($"  {slider.name}: {slider.Value}", true);
+                }
+
+                Plugin.Log("Input Boxes", true);
+                foreach((TMP_InputField inputField, MelonPreferences_Entry<float> entry) in _numberInputs)
+                {
+                    if (float.TryParse(inputField.text, out float result))
+                    {
+                        entry.Value = result;
+                        Plugin.Log($"  {inputField.name}: {inputField.text}", true);
+                    }
+                    else
+                    {
+                        Plugin.Log($"  Could not load input: {inputField.name}: {inputField.text}");
+                    }
                 }
 
                 MelonPreferences.Save();
@@ -397,6 +528,10 @@ namespace Bonfire
                 foreach((SliderUGUI slider, MelonPreferences_Entry<int> entry) in _sliderInts)  
                 {
                     slider.Value = entry.Value;
+                }
+                foreach((TMP_InputField inputField, MelonPreferences_Entry<float> entry) in _numberInputs)
+                {
+                    inputField.text = entry.Value.ToString();
                 }
                 zoomTarget.PickUp();
             }

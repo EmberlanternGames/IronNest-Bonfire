@@ -14,7 +14,7 @@ namespace Bonfire
     public static class MyPluginInfo {
         // public const string PLUGIN_GUID = "dev.emberlantern.recordshuffler";
         public const string PLUGIN_NAME = "Bonfire";
-        public const string PLUGIN_VERSION = "0.0.1";
+        public const string PLUGIN_VERSION = "1.0.0";
         public const string PLUGIN_DEV = "emberlantern";
     }
     

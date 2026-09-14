@@ -4,6 +4,11 @@ using UnityEngine.Events;
 using Il2Cpp;
 using Il2CppTMPro;
 
+// Portions of the UI construction below are adapted from vergeslich03's APNest-Client
+//  (client/ConnectUI.cs, client/MainMenuAPHook.cs), used under the MIT License.
+//  https://github.com/vergeslich03/APNest-Client
+//  Full license text: THIRD-PARTY-NOTICES.md
+
 // MASSIVE MASSIVE thank you to Vergeslich for providing the
 //  technique used to hook into the UI and text placement.
 
